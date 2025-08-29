@@ -1,0 +1,804 @@
+{
+  "readings": [
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16485
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16533
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16575
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16583
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16574
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16542
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16496
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16447
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16407
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16385
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16388
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16414
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16457
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16507
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16551
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16578
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16582
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16562
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16523
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16474
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16428
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16395
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16384
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16397
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16431
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16479
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16527
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16565
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16583
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16576
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16547
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16502
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16453
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16411
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16387
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16386
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16410
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16451
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16500
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16545
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16576
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16583
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16566
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16529
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16481
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16433
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16398
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16384
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-57",
+      "acceleration": 16394
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16426
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16507
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16551
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16578
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16582
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16562
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16523
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16474
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16427
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16394
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16384
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16397
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16432
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16479
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16528
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16566
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16583
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16576
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16547
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16502
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16453
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16411
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16387
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16386
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16410
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16451
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16501
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16546
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16576
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16583
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16566
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16529
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16480
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16433
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16398
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16384
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16394
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16426
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16473
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16522
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16561
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16582
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16578
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16552
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16508
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16459
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16415
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16389
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16385
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16406
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16445
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16525
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16564
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16582
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16577
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16549
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16505
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16455
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16413
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16388
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16386
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16408
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16449
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16498
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16544
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16575
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16583
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16557
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16531
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16483
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16435
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16399
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16384
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16393
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16424
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16470
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16519
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16559
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16581
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16579
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16554
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16511
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16462
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16418
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16390
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16385
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16404
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16443
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16491
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16538
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16572
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16583
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16571
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16537
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16490
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16441
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16403
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16384
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-58",
+      "acceleration": 16390
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16419
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16463
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16541
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16573
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16583
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16569
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16534
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16486
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16438
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16401
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16384
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16391
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16421
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16467
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16516
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16557
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16581
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16580
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16556
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16514
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16465
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16420
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16391
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16384
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16402
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16440
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16488
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16535
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16570
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16583
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16572
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16540
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16493
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16444
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16405
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16385
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16389
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16416
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16460
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16509
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16553
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16579
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16582
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16560
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16520
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16471
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16425
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16393
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16384
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16398
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16434
+    },
+    {
+      "timestamp": "2025-Aug-30T01-17-59",
+      "acceleration": 16481
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+[Unit]
+Description=High-Frequency Sensor Data Collection Service
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/nvs/Desktop/Wilo-Cloud-Monitoring
+ExecStart=/home/nvs/Desktop/Wilo-Cloud-Monitoring/env/bin/python main.py --continuous --duration 1 --rate 800 --batch 100
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
