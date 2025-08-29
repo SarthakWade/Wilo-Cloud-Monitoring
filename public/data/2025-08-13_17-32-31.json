@@ -1,0 +1,24 @@
+{
+  "readings": [
+    {"timestamp": "23-28-17.364519", "acceleration": 15888},
+    {"timestamp": "23-28-17.416043", "acceleration": 15877},
+    {"timestamp": "23-28-17.466955", "acceleration": 15873},
+    {"timestamp": "23-28-17.517859", "acceleration": 15864},
+    {"timestamp": "23-28-17.568763", "acceleration": 15859},
+    {"timestamp": "23-28-17.619667", "acceleration": 15852},
+    {"timestamp": "23-28-17.670571", "acceleration": 15848},
+    {"timestamp": "23-28-17.721475", "acceleration": 15841},
+    {"timestamp": "23-28-17.772379", "acceleration": 15835},
+    {"timestamp": "23-28-17.823283", "acceleration": 15828},
+    {"timestamp": "23-28-17.874187", "acceleration": 15822},
+    {"timestamp": "23-28-17.925091", "acceleration": 15815},
+    {"timestamp": "23-28-17.975995", "acceleration": 15809},
+    {"timestamp": "23-28-18.026899", "acceleration": 15802},
+    {"timestamp": "23-28-18.077803", "acceleration": 15796},
+    {"timestamp": "23-28-18.128707", "acceleration": 15789},
+    {"timestamp": "23-28-18.179611", "acceleration": 15783},
+    {"timestamp": "23-28-18.230515", "acceleration": 15776},
+    {"timestamp": "23-28-18.281419", "acceleration": 15770},
+    {"timestamp": "23-28-18.332323", "acceleration": 15763}
+  ]
+}
