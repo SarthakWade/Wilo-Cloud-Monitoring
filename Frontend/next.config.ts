@@ -5,8 +5,8 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: '/data/:path*',
-        destination: 'http://localhost:8000/api/file/:path*'
+        source: '/data/:file*.json',
+        destination: 'http://localhost:8000/api/file/:file*.csv'
       }
     ];
   }
