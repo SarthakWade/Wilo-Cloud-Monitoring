@@ -6,7 +6,8 @@ echo "🚀 Starting Wilo-Cloud-Monitoring System"
 # Start backend API server in background
 echo "Starting backend API server..."
 cd /home/nvs/Desktop/Wilo/Wilo-Cloud-Monitoring/Backend
-nohup python3 main.py --api --api-port 8000 > backend.log 2>&1 &
+source env/bin/activate
+nohup python3 main.py --api --api-port 8000 --continuous > backend.log 2>&1 &
 BACKEND_PID=$!
 echo "Backend API server started with PID: $BACKEND_PID"
 
