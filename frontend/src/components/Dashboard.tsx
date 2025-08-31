@@ -603,14 +603,14 @@ const Dashboard: React.FC = () => {
       {/* Header */}
       <header className="bg-[#019c7c] text-white p-4 shadow-lg">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             <div className="relative">
               <Image
                 src={process.env.NODE_ENV === 'production' ? '/Wilo-Cloud-Monitoring/vu.png' : '/vu.png'}
                 alt="VU Logo"
                 width={60}
                 height={60}
-                className="rounded-lg border-3 border-white shadow-lg ring-2 ring-gray-800/50 object-cover"
+                className="rounded-lg object-cover"
               />
             </div>
             <div className="relative">
@@ -619,7 +619,7 @@ const Dashboard: React.FC = () => {
                 alt="Wilo Logo"
                 width={60}
                 height={60}
-                className="rounded-lg border-3 border-white shadow-lg ring-2 ring-gray-800/50 object-cover"
+                className="rounded-lg object-cover"
               />
             </div>
           </div>
