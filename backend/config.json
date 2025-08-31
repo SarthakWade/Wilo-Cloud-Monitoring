@@ -1,0 +1,23 @@
+{
+  "sensor": {
+    "default_sampling_rate": 800,
+    "min_sampling_rate": 100,
+    "max_sampling_rate": 1000,
+    "i2c_address": "0x68"
+  },
+  "csv": {
+    "readings_directory": "readings",
+    "retention_days": 365,
+    "filename_format": "%Y%m%d_%H%M%S.csv"
+  },
+  "websocket": {
+    "host": "localhost",
+    "port": 8765,
+    "status_update_interval": 5
+  },
+  "system": {
+    "cleanup_interval_hours": 24,
+    "max_file_count": 100000,
+    "log_level": "INFO"
+  }
+}

@@ -1,0 +1,4 @@
+smbus2==0.4.2
+RPi.GPIO==0.7.1
+mpu6050-raspberrypi==1.2
+websockets==12.0
