@@ -5,7 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, LineChart, Line, Scatter
 } from 'recharts';
-import { Menu, FileText, BarChart3, Activity, Wifi, WifiOff, Sun, Moon, Download, Settings, Image as ImageIcon } from 'lucide-react';
+import { Menu, FileText, BarChart3, Activity, Wifi, WifiOff, Sun, Moon, Download, Settings, Calendar, ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react';
 import Image from 'next/image';
 
 interface DataPoint {
@@ -112,13 +112,81 @@ const Dashboard: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const chartRef = useRef<HTMLDivElement>(null);
   const fileChartRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const [wsStatus, setWsStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [showCalendarBrowser, setShowCalendarBrowser] = useState<boolean>(false);
+  const [folderStructure, setFolderStructure] = useState<any>({});
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-  // Load historical data once
+  // Dummy folder structure for demonstration
+  const dummyFolderStructure = {
+    "2025": {
+      "01": {
+        "Week_1": {
+          "01": [
+            { filename: "143022.csv", path: "2025/01/Week_1/01/143022.csv", size: 2048, modified: Date.now() / 1000 },
+            { filename: "143023.csv", path: "2025/01/Week_1/01/143023.csv", size: 2156, modified: Date.now() / 1000 },
+            { filename: "143024.csv", path: "2025/01/Week_1/01/143024.csv", size: 1987, modified: Date.now() / 1000 }
+          ],
+          "02": [
+            { filename: "090015.csv", path: "2025/01/Week_1/02/090015.csv", size: 2234, modified: Date.now() / 1000 },
+            { filename: "090016.csv", path: "2025/01/Week_1/02/090016.csv", size: 2098, modified: Date.now() / 1000 }
+          ],
+          "03": [
+            { filename: "120030.csv", path: "2025/01/Week_1/03/120030.csv", size: 2345, modified: Date.now() / 1000 },
+            { filename: "120031.csv", path: "2025/01/Week_1/03/120031.csv", size: 2123, modified: Date.now() / 1000 },
+            { filename: "120032.csv", path: "2025/01/Week_1/03/120032.csv", size: 2267, modified: Date.now() / 1000 }
+          ]
+        },
+        "Week_2": {
+          "08": [
+            { filename: "154500.csv", path: "2025/01/Week_2/08/154500.csv", size: 2456, modified: Date.now() / 1000 },
+            { filename: "154501.csv", path: "2025/01/Week_2/08/154501.csv", size: 2334, modified: Date.now() / 1000 }
+          ],
+          "09": [
+            { filename: "101245.csv", path: "2025/01/Week_2/09/101245.csv", size: 2178, modified: Date.now() / 1000 }
+          ]
+        }
+      },
+      "02": {
+        "Week_1": {
+          "01": [
+            { filename: "083015.csv", path: "2025/02/Week_1/01/083015.csv", size: 2567, modified: Date.now() / 1000 }
+          ]
+        }
+      }
+    },
+    "2024": {
+      "12": {
+        "Week_4": {
+          "28": [
+            { filename: "235959.csv", path: "2024/12/Week_4/28/235959.csv", size: 1876, modified: Date.now() / 1000 }
+          ],
+          "31": [
+            { filename: "235958.csv", path: "2024/12/Week_4/31/235958.csv", size: 2001, modified: Date.now() / 1000 },
+            { filename: "235959.csv", path: "2024/12/Week_4/31/235959.csv", size: 1999, modified: Date.now() / 1000 }
+          ]
+        }
+      }
+    }
+  };
+
+  // Load historical data once and setup WebSocket
   useEffect(() => {
     const data = generateHistoricalData();
     setFileData(data);
     setSelectedFile(data[0].filename);
     setSelectedFileData(data[0].data);
+
+    // Auto-connect to WebSocket on component mount
+    connectWebSocket();
+
+    // Cleanup WebSocket on component unmount
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
   }, []);
 
   // Update charts whenever zoom, aggregation, or domain changes
@@ -156,9 +224,128 @@ const Dashboard: React.FC = () => {
     setIsDarkMode(!isDarkMode);
   };
 
+  const connectWebSocket = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      return; // Already connected
+    }
+
+    setWsStatus('connecting');
+
+    try {
+      const ws = new WebSocket('ws://localhost:8765');
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        setWsStatus('connected');
+        setIsConnected(true);
+        wsRef.current = ws;
+
+        // Request initial status
+        ws.send(JSON.stringify({ command: 'get_status' }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleWebSocketMessage(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        setWsStatus('disconnected');
+        setIsConnected(false);
+        wsRef.current = null;
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setWsStatus('disconnected');
+        setIsConnected(false);
+      };
+
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
+      setWsStatus('disconnected');
+      setIsConnected(false);
+    }
+  };
+
+  const disconnectWebSocket = () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setWsStatus('disconnected');
+    setIsConnected(false);
+  };
+
   const toggleConnection = () => {
-    setIsConnected(!isConnected);
-    // TODO: Implement actual WebSocket connection logic
+    if (isConnected) {
+      disconnectWebSocket();
+    } else {
+      connectWebSocket();
+    }
+  };
+
+  const handleWebSocketMessage = (data: any) => {
+    switch (data.type) {
+      case 'status':
+        // Update connection status and sampling rate from backend
+        setIsConnected(data.data.connected);
+        setSamplingRate(data.data.sampling_rate);
+        break;
+
+      case 'new_file':
+        // Handle new CSV file notification
+        console.log('New CSV file created:', data.filename);
+        // Request updated file list from backend
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ command: 'get_file_list' }));
+        }
+        break;
+
+      case 'file_list':
+        // Update file list from backend
+        if (data.files && data.files.length > 0) {
+          // Convert backend CSV files to frontend format
+          const backendFiles = data.files.map((filename: string) => ({
+            filename: filename,
+            data: [] // Will be loaded when selected
+          }));
+
+          // For now, keep using historical data for the main chart
+          // In a full implementation, you'd load actual CSV data here
+          console.log('Received file list from backend:', data.files);
+        }
+        break;
+
+      case 'folder_structure':
+        // Update folder structure for calendar browser
+        setFolderStructure(data.structure);
+        console.log('Received folder structure:', data.structure);
+        break;
+
+      case 'command_response':
+        if (data.command === 'set_sampling_rate') {
+          if (data.success) {
+            setSamplingRate(data.new_rate);
+            console.log(`Sampling rate updated to ${data.new_rate} Hz`);
+          } else {
+            console.error('Failed to update sampling rate');
+          }
+        }
+        break;
+
+      case 'error':
+        console.error('WebSocket error:', data.message);
+        break;
+
+      default:
+        console.log('Unknown WebSocket message type:', data.type);
+    }
   };
 
   const exportToCSV = (data: DataPoint[], filename: string) => {
@@ -179,9 +366,20 @@ const Dashboard: React.FC = () => {
   };
 
   const handleSamplingRateChange = (newRate: number) => {
-    setSamplingRate(newRate);
-    // TODO: Send sampling rate change to backend WebSocket
-    console.log(`Sampling rate changed to: ${newRate} Hz`);
+    // Send sampling rate change to backend via WebSocket
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      const command = {
+        command: 'set_sampling_rate',
+        rate: newRate
+      };
+
+      wsRef.current.send(JSON.stringify(command));
+      console.log(`Sending sampling rate change to backend: ${newRate} Hz`);
+    } else {
+      // If not connected, just update local state
+      setSamplingRate(newRate);
+      console.log(`WebSocket not connected. Local sampling rate set to: ${newRate} Hz`);
+    }
   };
 
   const exportSelectedFileAsCSV = () => {
@@ -214,34 +412,7 @@ const Dashboard: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  const exportChartAsImage = async () => {
-    try {
-      // Dynamic import to avoid SSR issues
-      const html2canvas = (await import('html2canvas')).default;
-      
-      const chartElement = chartRef.current;
-      if (!chartElement) {
-        console.error('Chart element not found');
-        return;
-      }
 
-      const canvas = await html2canvas(chartElement, {
-        backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-        scale: 2,
-        logging: false,
-        useCORS: true,
-      });
-
-      const link = document.createElement('a');
-      link.download = `acceleration_chart_${new Date().toISOString().split('T')[0]}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    } catch (error) {
-      console.error('Failed to export chart as image:', error);
-      // Fallback: show a message to the user
-      alert('Chart export failed. Please try again or use a different browser.');
-    }
-  };
 
   const handleWheelZoom = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault(); // Prevent page scrolling when over the chart
@@ -293,14 +464,155 @@ const Dashboard: React.FC = () => {
     setDomain(undefined);
   };
 
+  const openCalendarBrowser = () => {
+    setShowCalendarBrowser(true);
+    // Use dummy data for now, or request from backend if connected
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ command: 'get_folder_structure' }));
+    } else {
+      // Use dummy data for demonstration
+      setFolderStructure(dummyFolderStructure);
+    }
+  };
+
+  const closeCalendarBrowser = () => {
+    setShowCalendarBrowser(false);
+  };
+
+  const toggleNode = (nodePath: string) => {
+    const newExpanded = new Set(expandedNodes);
+    if (newExpanded.has(nodePath)) {
+      newExpanded.delete(nodePath);
+    } else {
+      newExpanded.add(nodePath);
+    }
+    setExpandedNodes(newExpanded);
+  };
+
+  const handleCalendarFileSelect = (filePath: string) => {
+    console.log('Selected file from calendar:', filePath);
+    // Add visual feedback for file selection
+    // TODO: Load actual CSV data and update charts
+    // Close calendar browser after selection
+    setShowCalendarBrowser(false);
+  };
+
+  const renderFolderNode = (name: string, content: any, path: string, level: number = 0) => {
+    const isExpanded = expandedNodes.has(path);
+    const isFile = typeof content === 'object' && content.filename;
+    const hasChildren = typeof content === 'object' && !content.filename;
+
+    if (isFile) {
+      // Render file with glass effect
+      return (
+        <div
+          key={path}
+          className={`
+            flex items-center space-x-3 py-3 px-4 rounded-xl cursor-pointer transition-all duration-200
+            backdrop-blur-sm border border-transparent
+            ${isDarkMode
+              ? 'hover:bg-gray-700/50 hover:border-gray-600/30 text-gray-300'
+              : 'hover:bg-white/50 hover:border-gray-300/30 text-gray-700'
+            }
+            hover:scale-[1.02] active:scale-[0.98]
+          `}
+          style={{ marginLeft: `${level * 24}px` }}
+          onClick={() => handleCalendarFileSelect(content.path)}
+        >
+          <div className="p-1 rounded-lg bg-blue-500/20 backdrop-blur-sm">
+            <FileText className="h-4 w-4 text-blue-500" />
+          </div>
+          <div className="flex-1">
+            <span className="text-sm font-medium">{content.filename}</span>
+            <div className="flex items-center space-x-2 mt-1">
+              <span className={`text-xs px-2 py-1 rounded-full ${isDarkMode ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-100/50 text-gray-500'}`}>
+                {(content.size / 1024).toFixed(1)}KB
+              </span>
+              <span className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                {new Date(content.modified * 1000).toLocaleTimeString()}
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (hasChildren) {
+      // Render folder with glass effect
+      return (
+        <div key={path}>
+          <div
+            className={`
+              flex items-center space-x-3 py-3 px-4 rounded-xl cursor-pointer transition-all duration-200
+              backdrop-blur-sm border border-transparent
+              ${isDarkMode
+                ? 'hover:bg-gray-700/50 hover:border-gray-600/30 text-gray-200'
+                : 'hover:bg-white/50 hover:border-gray-300/30 text-gray-800'
+              }
+              hover:scale-[1.02] active:scale-[0.98]
+            `}
+            style={{ marginLeft: `${level * 24}px` }}
+            onClick={() => toggleNode(path)}
+          >
+            <div className="flex items-center space-x-2">
+              {isExpanded ? (
+                <ChevronDown className={`h-4 w-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+              ) : (
+                <ChevronRight className={`h-4 w-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+              )}
+              <div className="p-1 rounded-lg bg-yellow-500/20 backdrop-blur-sm">
+                {isExpanded ? (
+                  <FolderOpen className="h-4 w-4 text-yellow-500" />
+                ) : (
+                  <Folder className="h-4 w-4 text-yellow-500" />
+                )}
+              </div>
+            </div>
+            <span className="text-sm font-semibold">{name}</span>
+            <span className={`text-xs px-2 py-1 rounded-full ${isDarkMode ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-100/50 text-gray-500'}`}>
+              {Object.keys(content).length} items
+            </span>
+          </div>
+
+          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
+            }`}>
+            <div className="mt-2 space-y-1 pl-2">
+              {Object.entries(content).map(([childName, childContent]) =>
+                renderFolderNode(childName, childContent, `${path}/${childName}`, level + 1)
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className={`min-h-screen transition-colors ${isDarkMode ? 'bg-gray-900' : 'bg-[#efefef]'}`}>
       {/* Header */}
       <header className="bg-[#019c7c] text-white p-4 shadow-lg">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center space-x-3">
-            <Image src="/vu.png" alt="VU Logo" width={60} height={60} className="rounded-lg border-2 border-white shadow-lg ring-1 ring-gray-800" />
-            <Image src="/wilo.png" alt="Wilo Logo" width={60} height={60} className="rounded-lg border-2 border-white shadow-lg ring-1 ring-gray-800" />
+            <div className="relative">
+              <Image
+                src="/vu.png"
+                alt="VU Logo"
+                width={60}
+                height={60}
+                className="rounded-lg border-3 border-white shadow-lg ring-2 ring-gray-800/50 object-cover"
+              />
+            </div>
+            <div className="relative">
+              <Image
+                src="/wilo.png"
+                alt="Wilo Logo"
+                width={60}
+                height={60}
+                className="rounded-lg border-3 border-white shadow-lg ring-2 ring-gray-800/50 object-cover"
+              />
+            </div>
           </div>
           <div className="flex items-center space-x-6">
             <button
@@ -334,14 +646,30 @@ const Dashboard: React.FC = () => {
                 <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Connection</span>
                 <button
                   onClick={toggleConnection}
-                  className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium transition-colors ${isConnected
+                  disabled={wsStatus === 'connecting'}
+                  className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium transition-colors ${wsStatus === 'connected'
                     ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                    : 'bg-red-100 text-red-800 hover:bg-red-200'
+                    : wsStatus === 'connecting'
+                      ? 'bg-yellow-100 text-yellow-800 cursor-not-allowed'
+                      : 'bg-red-100 text-red-800 hover:bg-red-200'
                     }`}
                 >
-                  {isConnected ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-                  <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+                  {wsStatus === 'connected' ? (
+                    <Wifi className="h-4 w-4" />
+                  ) : wsStatus === 'connecting' ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-800"></div>
+                  ) : (
+                    <WifiOff className="h-4 w-4" />
+                  )}
+                  <span>
+                    {wsStatus === 'connected' ? 'Connected' :
+                      wsStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+                  </span>
                 </button>
+              </div>
+              <div className="text-xs text-gray-500">
+                {wsStatus === 'connected' ? 'Real-time data streaming' :
+                  wsStatus === 'connecting' ? 'Establishing connection...' : 'Using historical data'}
               </div>
             </div>
 
@@ -351,7 +679,7 @@ const Dashboard: React.FC = () => {
                 <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Sampling Rate</span>
                 <span className={`text-lg font-bold text-[#019c7c]`}>{samplingRate} Hz</span>
               </div>
-              
+
               {/* Rate Slider */}
               <div className="mb-3">
                 <input
@@ -367,20 +695,19 @@ const Dashboard: React.FC = () => {
                   }}
                 />
               </div>
-              
+
               {/* Quick Rate Buttons */}
               <div className="flex space-x-2">
                 {[200, 400, 600, 800].map((rate) => (
                   <button
                     key={rate}
                     onClick={() => handleSamplingRateChange(rate)}
-                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                      samplingRate === rate
-                        ? 'bg-[#019c7c] text-white'
-                        : isDarkMode
-                          ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${samplingRate === rate
+                      ? 'bg-[#019c7c] text-white'
+                      : isDarkMode
+                        ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
                   >
                     {rate}
                   </button>
@@ -402,10 +729,19 @@ const Dashboard: React.FC = () => {
 
           {/* File List */}
           <div className={`rounded-lg p-6 shadow-md transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <h2 className={`text-lg font-semibold mb-4 flex items-center ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-              <FileText className="h-5 w-5 mr-2 text-[#019c7c]" />
-              Data Files
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className={`text-lg font-semibold flex items-center ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                <FileText className="h-5 w-5 mr-2 text-[#019c7c]" />
+                Data Files
+              </h2>
+              <button
+                onClick={openCalendarBrowser}
+                className="flex items-center space-x-2 px-3 py-1 rounded-lg bg-[#019c7c] text-white hover:bg-[#018a6f] transition-colors text-sm"
+              >
+                <Calendar className="h-4 w-4" />
+                <span>Browse</span>
+              </button>
+            </div>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {fileData.map((file) => (
                 <button
@@ -467,40 +803,7 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Chart Export */}
-              <div>
-                <h3 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Chart Export
-                </h3>
-                <div className="space-y-2">
-                  <button
-                    onClick={exportChartAsImage}
-                    className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between ${isDarkMode
-                      ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      }`}
-                  >
-                    <span className="text-sm">Save Overview Chart</span>
-                    <ImageIcon className="h-4 w-4" />
-                  </button>
 
-                  <button
-                    onClick={exportChartAsImage}
-                    disabled={!selectedFile}
-                    className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between ${selectedFile
-                      ? isDarkMode
-                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      : isDarkMode
-                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                      }`}
-                  >
-                    <span className="text-sm">Save File Chart</span>
-                    <ImageIcon className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -730,6 +1033,140 @@ const Dashboard: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Glass UI Calendar Browser Panel */}
+      {showCalendarBrowser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Glass Background Overlay */}
+          <div
+            className="absolute inset-0 backdrop-blur-md bg-black/20"
+            onClick={closeCalendarBrowser}
+          ></div>
+
+          {/* Glass Panel */}
+          <div className="relative w-full max-w-5xl max-h-[85vh] rounded-2xl overflow-hidden">
+            {/* Glass morphism container */}
+            <div className={`
+              backdrop-blur-xl border border-white/20 shadow-2xl
+              ${isDarkMode
+                ? 'bg-gray-900/80 shadow-black/50'
+                : 'bg-white/80 shadow-gray-900/20'
+              }
+            `}>
+              {/* Header with glass effect */}
+              <div className={`
+                px-8 py-6 border-b border-white/10
+                ${isDarkMode ? 'bg-gray-800/50' : 'bg-white/50'}
+              `}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 rounded-xl bg-[#019c7c]/20 backdrop-blur-sm">
+                      <Calendar className="h-6 w-6 text-[#019c7c]" />
+                    </div>
+                    <div>
+                      <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                        CSV File Browser
+                      </h2>
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Navigate through your sensor data files
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={closeCalendarBrowser}
+                    className={`
+                      p-3 rounded-xl transition-all duration-200 backdrop-blur-sm
+                      ${isDarkMode
+                        ? 'bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white'
+                        : 'bg-gray-100/50 hover:bg-gray-200/50 text-gray-600 hover:text-gray-800'
+                      }
+                      hover:scale-105 active:scale-95
+                    `}
+                  >
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Content Area */}
+              <div className="p-8 overflow-y-auto max-h-[60vh]">
+                {Object.keys(folderStructure).length === 0 && Object.keys(dummyFolderStructure).length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className={`
+                      inline-flex p-6 rounded-2xl mb-6
+                      ${isDarkMode ? 'bg-gray-800/50' : 'bg-gray-100/50'}
+                      backdrop-blur-sm
+                    `}>
+                      <Calendar className={`h-16 w-16 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                    </div>
+                    <h3 className={`text-xl font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                      No CSV files found
+                    </h3>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Start collecting sensor data to see files organized by date
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Info Banner */}
+                    <div className={`
+                      p-4 rounded-xl border backdrop-blur-sm
+                      ${isDarkMode
+                        ? 'bg-blue-900/20 border-blue-500/20 text-blue-300'
+                        : 'bg-blue-50/50 border-blue-200/50 text-blue-700'
+                      }
+                    `}>
+                      <div className="flex items-center space-x-2">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-sm font-medium">
+                          Structure: Year → Month → Week → Day → Files
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* File Tree */}
+                    <div className={`
+                      rounded-xl border backdrop-blur-sm p-6
+                      ${isDarkMode
+                        ? 'bg-gray-800/30 border-gray-700/30'
+                        : 'bg-white/30 border-gray-200/30'
+                      }
+                    `}>
+                      <div className="space-y-2">
+                        {Object.entries(Object.keys(folderStructure).length ? folderStructure : dummyFolderStructure).map(([year, yearContent]) =>
+                          renderFolderNode(year, yearContent, year, 0)
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className={`
+                px-8 py-6 border-t border-white/10
+                ${isDarkMode ? 'bg-gray-800/50' : 'bg-white/50'}
+              `}>
+                <div className="flex justify-between items-center">
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Click folders to expand • Click files to select
+                  </div>
+                  <button
+                    onClick={closeCalendarBrowser}
+                    className="px-6 py-3 bg-[#019c7c] text-white rounded-xl hover:bg-[#018a6f] transition-all duration-200 backdrop-blur-sm hover:scale-105 active:scale-95 font-medium"
+                  >
+                    Close Browser
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
