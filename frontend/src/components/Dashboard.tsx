@@ -606,7 +606,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center space-x-3">
             <div className="relative">
               <Image
-                src="/vu.png"
+                src={process.env.NODE_ENV === 'production' ? '/Wilo-Cloud-Monitoring/vu.png' : '/vu.png'}
                 alt="VU Logo"
                 width={60}
                 height={60}
@@ -615,7 +615,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="relative">
               <Image
-                src="/wilo.png"
+                src={process.env.NODE_ENV === 'production' ? '/Wilo-Cloud-Monitoring/wilo.png' : '/wilo.png'}
                 alt="Wilo Logo"
                 width={60}
                 height={60}
