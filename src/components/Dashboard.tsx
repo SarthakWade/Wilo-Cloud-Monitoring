@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, Scatter
+  ResponsiveContainer, LineChart, Line
 } from 'recharts';
-import { Menu, FileText, BarChart3, Activity, Wifi, WifiOff, Sun, Moon, Download, Settings, Calendar, ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react';
+import { FileText, BarChart3, Activity, Wifi, WifiOff, Sun, Moon, Download, Calendar, ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react';
 import Image from 'next/image';
 
 interface DataPoint {
@@ -103,7 +103,7 @@ const Dashboard: React.FC = () => {
   const [fileData, setFileData] = useState<FileData[]>([]);
   const [selectedFile, setSelectedFile] = useState<string>('');
   const [selectedFileData, setSelectedFileData] = useState<DataPoint[]>([]);
-  const [mainChartData, setMainChartData] = useState<any[]>([]);
+  const [mainChartData, setMainChartData] = useState<{ time: string; acceleration: number; dataPoints: number }[]>([]);
   const [zoomLevel, setZoomLevel] = useState<'months' | 'dates' | 'time'>('months');
   const [aggregationType, setAggregationType] = useState<AggregationType>('max');
   const [domain, setDomain] = useState<[string, string] | undefined>(undefined);
@@ -115,7 +115,7 @@ const Dashboard: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const [wsStatus, setWsStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [showCalendarBrowser, setShowCalendarBrowser] = useState<boolean>(false);
-  const [folderStructure, setFolderStructure] = useState<any>({});
+  const [folderStructure, setFolderStructure] = useState<Record<string, unknown>>({});
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   // Dummy folder structure for demonstration
@@ -172,59 +172,74 @@ const Dashboard: React.FC = () => {
   };
 
   // Load historical data once and setup WebSocket
-  useEffect(() => {
-    const data = generateHistoricalData();
-    setFileData(data);
-    setSelectedFile(data[0].filename);
-    setSelectedFileData(data[0].data);
+  const handleWebSocketMessage = (data: {
+    type: string;
+    data?: { connected: boolean; sampling_rate: number };
+    files?: string[];
+    structure?: Record<string, unknown>;
+    command?: string;
+    success?: boolean;
+    new_rate?: number;
+    message?: string;
+    filename?: string;
+  }) => {
+    switch (data.type) {
+      case 'status':
+        // Update connection status and sampling rate from backend
+        if (data.data) {
+          setIsConnected(data.data.connected);
+          setSamplingRate(data.data.sampling_rate);
+        }
+        break;
 
-    // Auto-connect to WebSocket on component mount
-    connectWebSocket();
+      case 'new_file':
+        // Handle new CSV file notification
+        console.log('New CSV file created:', data.filename);
+        // Request updated file list from backend
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ command: 'get_file_list' }));
+        }
+        break;
 
-    // Cleanup WebSocket on component unmount
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, []);
+      case 'file_list':
+        // Update file list from backend
+        if (data.files && data.files.length > 0) {
+          // Convert backend CSV files to frontend format
+          // For now, keep using historical data for the main chart
+          // In a full implementation, you'd load actual CSV data here
+          console.log('Received file list from backend:', data.files);
+        }
+        break;
 
-  // Update charts whenever zoom, aggregation, or domain changes
-  useEffect(() => {
-    if (fileData.length > 0) {
-      let filteredData = fileData.flatMap((f) => f.data);
-      if (domain) {
-        const [start, end] = domain;
-        filteredData = filteredData.filter(
-          (d) => new Date(d.timestamp) >= new Date(start) && new Date(d.timestamp) <= new Date(end)
-        );
-      }
-      setMainChartData(aggregateData(filteredData, zoomLevel, aggregationType));
+      case 'folder_structure':
+        // Update folder structure for calendar browser
+        if (data.structure) {
+          setFolderStructure(data.structure);
+        }
+        console.log('Received folder structure:', data.structure);
+        break;
 
-      const file = fileData.find((f) => f.filename === selectedFile);
-      if (file) {
-        setSelectedFileData(
-          domain
-            ? file.data.filter(
-              (d) => new Date(d.timestamp) >= new Date(domain[0]) && new Date(d.timestamp) <= new Date(domain[1])
-            )
-            : file.data
-        );
-      }
+      case 'command_response':
+        if (data.command === 'set_sampling_rate') {
+          if (data.success && data.new_rate) {
+            setSamplingRate(data.new_rate);
+            console.log(`Sampling rate updated to ${data.new_rate} Hz`);
+          } else {
+            console.error('Failed to update sampling rate');
+          }
+        }
+        break;
+
+      case 'error':
+        console.error('WebSocket error:', data.message);
+        break;
+
+      default:
+        console.log('Unknown WebSocket message type:', data.type);
     }
-  }, [fileData, selectedFile, aggregationType, zoomLevel, domain]);
-
-  const handleFileSelect = (filename: string) => {
-    setSelectedFile(filename);
-    const file = fileData.find((f) => f.filename === filename);
-    if (file) setSelectedFileData(file.data);
   };
 
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-  };
-
-  const connectWebSocket = () => {
+  const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       return; // Already connected
     }
@@ -271,6 +286,58 @@ const Dashboard: React.FC = () => {
       setWsStatus('disconnected');
       setIsConnected(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const data = generateHistoricalData();
+    setFileData(data);
+    setSelectedFile(data[0].filename);
+    setSelectedFileData(data[0].data);
+
+    // Auto-connect to WebSocket on component mount
+    connectWebSocket();
+
+    // Cleanup WebSocket on component unmount
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [connectWebSocket]);
+
+  // Update charts whenever zoom, aggregation, or domain changes
+  useEffect(() => {
+    if (fileData.length > 0) {
+      let filteredData = fileData.flatMap((f) => f.data);
+      if (domain) {
+        const [start, end] = domain;
+        filteredData = filteredData.filter(
+          (d) => new Date(d.timestamp) >= new Date(start) && new Date(d.timestamp) <= new Date(end)
+        );
+      }
+      setMainChartData(aggregateData(filteredData, zoomLevel, aggregationType));
+
+      const file = fileData.find((f) => f.filename === selectedFile);
+      if (file) {
+        setSelectedFileData(
+          domain
+            ? file.data.filter(
+              (d) => new Date(d.timestamp) >= new Date(domain[0]) && new Date(d.timestamp) <= new Date(domain[1])
+            )
+            : file.data
+        );
+      }
+    }
+  }, [fileData, selectedFile, aggregationType, zoomLevel, domain]);
+
+  const handleFileSelect = (filename: string) => {
+    setSelectedFile(filename);
+    const file = fileData.find((f) => f.filename === filename);
+    if (file) setSelectedFileData(file.data);
+  };
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
   };
 
   const disconnectWebSocket = () => {
@@ -287,64 +354,6 @@ const Dashboard: React.FC = () => {
       disconnectWebSocket();
     } else {
       connectWebSocket();
-    }
-  };
-
-  const handleWebSocketMessage = (data: any) => {
-    switch (data.type) {
-      case 'status':
-        // Update connection status and sampling rate from backend
-        setIsConnected(data.data.connected);
-        setSamplingRate(data.data.sampling_rate);
-        break;
-
-      case 'new_file':
-        // Handle new CSV file notification
-        console.log('New CSV file created:', data.filename);
-        // Request updated file list from backend
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ command: 'get_file_list' }));
-        }
-        break;
-
-      case 'file_list':
-        // Update file list from backend
-        if (data.files && data.files.length > 0) {
-          // Convert backend CSV files to frontend format
-          const backendFiles = data.files.map((filename: string) => ({
-            filename: filename,
-            data: [] // Will be loaded when selected
-          }));
-
-          // For now, keep using historical data for the main chart
-          // In a full implementation, you'd load actual CSV data here
-          console.log('Received file list from backend:', data.files);
-        }
-        break;
-
-      case 'folder_structure':
-        // Update folder structure for calendar browser
-        setFolderStructure(data.structure);
-        console.log('Received folder structure:', data.structure);
-        break;
-
-      case 'command_response':
-        if (data.command === 'set_sampling_rate') {
-          if (data.success) {
-            setSamplingRate(data.new_rate);
-            console.log(`Sampling rate updated to ${data.new_rate} Hz`);
-          } else {
-            console.error('Failed to update sampling rate');
-          }
-        }
-        break;
-
-      case 'error':
-        console.error('WebSocket error:', data.message);
-        break;
-
-      default:
-        console.log('Unknown WebSocket message type:', data.type);
     }
   };
 
@@ -497,10 +506,10 @@ const Dashboard: React.FC = () => {
     setShowCalendarBrowser(false);
   };
 
-  const renderFolderNode = (name: string, content: any, path: string, level: number = 0) => {
+  const renderFolderNode = (name: string, content: Record<string, unknown> | { filename: string; path: string; size: number; modified: number }, path: string, level: number = 0) => {
     const isExpanded = expandedNodes.has(path);
-    const isFile = typeof content === 'object' && content.filename;
-    const hasChildren = typeof content === 'object' && !content.filename;
+    const isFile = typeof content === 'object' && 'filename' in content;
+    const hasChildren = typeof content === 'object' && !('filename' in content);
 
     if (isFile) {
       // Render file with glass effect
@@ -517,19 +526,19 @@ const Dashboard: React.FC = () => {
             hover:scale-[1.02] active:scale-[0.98]
           `}
           style={{ marginLeft: `${level * 24}px` }}
-          onClick={() => handleCalendarFileSelect(content.path)}
+          onClick={() => handleCalendarFileSelect((content as { path: string }).path)}
         >
           <div className="p-1 rounded-lg bg-blue-500/20 backdrop-blur-sm">
             <FileText className="h-4 w-4 text-blue-500" />
           </div>
           <div className="flex-1">
-            <span className="text-sm font-medium">{content.filename}</span>
+            <span className="text-sm font-medium">{(content as { filename: string }).filename}</span>
             <div className="flex items-center space-x-2 mt-1">
               <span className={`text-xs px-2 py-1 rounded-full ${isDarkMode ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-100/50 text-gray-500'}`}>
-                {(content.size / 1024).toFixed(1)}KB
+                {((content as { size: number }).size / 1024).toFixed(1)}KB
               </span>
               <span className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                {new Date(content.modified * 1000).toLocaleTimeString()}
+                {new Date((content as { modified: number }).modified * 1000).toLocaleTimeString()}
               </span>
             </div>
           </div>
@@ -577,8 +586,8 @@ const Dashboard: React.FC = () => {
           <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
             }`}>
             <div className="mt-2 space-y-1 pl-2">
-              {Object.entries(content).map(([childName, childContent]) =>
-                renderFolderNode(childName, childContent, `${path}/${childName}`, level + 1)
+              {Object.entries(content as Record<string, unknown>).map(([childName, childContent]) =>
+                renderFolderNode(childName, childContent as Record<string, unknown> | { filename: string; path: string; size: number; modified: number }, `${path}/${childName}`, level + 1)
               )}
             </div>
           </div>
@@ -892,7 +901,7 @@ const Dashboard: React.FC = () => {
                         fontSize: '14px',
                         padding: '12px 16px'
                       }}
-                      formatter={(value: any, name: any) => [
+                      formatter={(value: number) => [
                         `${Number(value).toLocaleString()} m/s²`,
                         aggregationType.charAt(0).toUpperCase() + aggregationType.slice(1)
                       ]}
@@ -997,7 +1006,7 @@ const Dashboard: React.FC = () => {
                         fontSize: '13px',
                         padding: '10px 14px'
                       }}
-                      formatter={(value: any) => [
+                      formatter={(value: number) => [
                         `${Number(value).toLocaleString()} m/s²`,
                         'Acceleration'
                       ]}
@@ -1138,7 +1147,7 @@ const Dashboard: React.FC = () => {
                     `}>
                       <div className="space-y-2">
                         {Object.entries(Object.keys(folderStructure).length ? folderStructure : dummyFolderStructure).map(([year, yearContent]) =>
-                          renderFolderNode(year, yearContent, year, 0)
+                          renderFolderNode(year, yearContent as Record<string, unknown>, year, 0)
                         )}
                       </div>
                     </div>
