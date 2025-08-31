@@ -2,9 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ frontend-revamp ]
+    branches: [ main ]
   pull_request:
-    branches: [ frontend-revamp ]
+    branches: [ main ]
 
 permissions:
   contents: read
