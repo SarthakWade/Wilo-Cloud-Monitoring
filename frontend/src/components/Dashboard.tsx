@@ -18,6 +18,24 @@ interface FileData {
   data: DataPoint[];
 }
 
+interface WebSocketMessage {
+  type: string;
+  data?: {
+    connected: boolean;
+    sampling_rate: number;
+  };
+  files?: string[];
+  structure?: Record<string, unknown>;
+  command?: string;
+  success?: boolean;
+  new_rate?: number;
+  message?: string;
+  filename?: string;
+  download_url?: string;
+  file_count?: number;
+  error?: string;
+}
+
 type AggregationType =
   | 'max'
   | 'min'
@@ -117,6 +135,24 @@ const Dashboard: React.FC = () => {
   const [showCalendarBrowser, setShowCalendarBrowser] = useState<boolean>(false);
   const [folderStructure, setFolderStructure] = useState<Record<string, unknown>>({});
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [csvFiles, setCsvFiles] = useState<string[]>([]);
+  const [liveData, setLiveData] = useState<DataPoint[]>([]);
+  const [selectedCsvFile, setSelectedCsvFile] = useState<string>('');
+  const [selectedCsvData, setSelectedCsvData] = useState<DataPoint[]>([]);
+  
+  // Popup states
+  const [showStatsPopup, setShowStatsPopup] = useState(false);
+  const [showSamplingRatePopup, setShowSamplingRatePopup] = useState(false);
+  const [pendingSamplingRate, setPendingSamplingRate] = useState<number | null>(null);
+  const [showZipExportPopup, setShowZipExportPopup] = useState(false);
+  
+  // Notification system
+  const [notification, setNotification] = useState<{message: string; type: 'success' | 'error' | 'info'} | null>(null);
+  
+  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 4000); // Auto-dismiss after 4 seconds
+  };
 
   // Dummy folder structure for demonstration
   const dummyFolderStructure = {
@@ -172,23 +208,26 @@ const Dashboard: React.FC = () => {
   };
 
   // Load historical data once and setup WebSocket
-  const handleWebSocketMessage = (data: {
-    type: string;
-    data?: { connected: boolean; sampling_rate: number };
-    files?: string[];
-    structure?: Record<string, unknown>;
-    command?: string;
-    success?: boolean;
-    new_rate?: number;
-    message?: string;
-    filename?: string;
-  }) => {
+  const handleWebSocketMessage = (data: WebSocketMessage) => {
     switch (data.type) {
       case 'status':
         // Update connection status and sampling rate from backend
         if (data.data) {
           setIsConnected(data.data.connected);
           setSamplingRate(data.data.sampling_rate);
+          
+          // Simulate live data for demonstration
+          if (data.data.connected) {
+            const newLivePoint = {
+              timestamp: new Date().toISOString(),
+              acceleration: Math.round(1000 + Math.random() * 15000)
+            };
+            setLiveData(prev => {
+              const updated = [...prev, newLivePoint];
+              // Keep only last 50 points for performance
+              return updated.slice(-50);
+            });
+          }
         }
         break;
 
@@ -201,12 +240,50 @@ const Dashboard: React.FC = () => {
         }
         break;
 
+      case 'zip_export':
+        // Handle ZIP file download from backend
+        console.log('Received ZIP export response:', data);
+        if (data.download_url) {
+          console.log('Downloading ZIP from URL:', data.download_url);
+          
+          // Create download link and trigger download
+          const link = document.createElement('a');
+          link.href = data.download_url;
+          link.download = data.filename || `sensor_data_export_${new Date().toISOString().split('T')[0]}.zip`;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          
+          // Trigger download
+          link.click();
+          
+          // Clean up
+          document.body.removeChild(link);
+          
+          console.log(`ZIP download initiated: ${data.filename} with ${data.file_count} files`);
+          showNotification(`ZIP export successful! Files exported: ${data.file_count}. Download should start automatically.`, 'success');
+        } else if (data.error) {
+          console.error('ZIP export error:', data.error);
+          showNotification(`ZIP export failed: ${data.error}`, 'error');
+        } else {
+          console.error('ZIP export response missing download URL');
+          showNotification('ZIP export failed: No download URL received', 'error');
+        }
+        break;
+
+      case 'csv_data':
+        // Handle CSV file data from backend
+        if (data.filename && data.data) {
+          setSelectedCsvFile(data.filename);
+          // Type assertion since we know this contains DataPoint array
+          setSelectedCsvData(data.data as unknown as DataPoint[]);
+          console.log('Received CSV data for:', data.filename);
+        }
+        break;
+
       case 'file_list':
         // Update file list from backend
         if (data.files && data.files.length > 0) {
-          // Convert backend CSV files to frontend format
-          // For now, keep using historical data for the main chart
-          // In a full implementation, you'd load actual CSV data here
+          setCsvFiles(data.files);
           console.log('Received file list from backend:', data.files);
         }
         break;
@@ -255,8 +332,9 @@ const Dashboard: React.FC = () => {
         setIsConnected(true);
         wsRef.current = ws;
 
-        // Request initial status
+        // Request initial status and file list
         ws.send(JSON.stringify({ command: 'get_status' }));
+        ws.send(JSON.stringify({ command: 'get_file_list' }));
       };
 
       ws.onmessage = (event) => {
@@ -273,10 +351,23 @@ const Dashboard: React.FC = () => {
         setWsStatus('disconnected');
         setIsConnected(false);
         wsRef.current = null;
+        
+        // Auto-retry connection after 3 seconds
+        setTimeout(() => {
+          if (wsRef.current === null) {
+            console.log('Attempting to reconnect WebSocket...');
+            connectWebSocket();
+          }
+        }, 3000);
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('WebSocket error details:', {
+          error: error,
+          readyState: ws.readyState,
+          url: ws.url,
+          timestamp: new Date().toISOString()
+        });
         setWsStatus('disconnected');
         setIsConnected(false);
       };
@@ -336,6 +427,20 @@ const Dashboard: React.FC = () => {
     if (file) setSelectedFileData(file.data);
   };
 
+  const handleCsvFileSelect = (csvFilename: string) => {
+    // Request CSV data from backend via WebSocket
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      const command = {
+        command: 'get_csv_data',
+        filename: csvFilename
+      };
+      wsRef.current.send(JSON.stringify(command));
+      console.log('Requesting CSV data for:', csvFilename);
+    } else {
+      console.log('WebSocket not connected, cannot load CSV data');
+    }
+  };
+
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
   };
@@ -375,6 +480,16 @@ const Dashboard: React.FC = () => {
   };
 
   const handleSamplingRateChange = (newRate: number) => {
+    // Show custom confirmation popup instead of browser alert
+    setPendingSamplingRate(newRate);
+    setShowSamplingRatePopup(true);
+  };
+  
+  const confirmSamplingRateChange = () => {
+    if (pendingSamplingRate === null) return;
+    
+    const newRate = pendingSamplingRate;
+    
     // Send sampling rate change to backend via WebSocket
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       const command = {
@@ -389,36 +504,82 @@ const Dashboard: React.FC = () => {
       setSamplingRate(newRate);
       console.log(`WebSocket not connected. Local sampling rate set to: ${newRate} Hz`);
     }
+    
+    // Close popup
+    setShowSamplingRatePopup(false);
+    setPendingSamplingRate(null);
+  };
+  
+  const cancelSamplingRateChange = () => {
+    setShowSamplingRatePopup(false);
+    setPendingSamplingRate(null);
   };
 
   const exportSelectedFileAsCSV = () => {
-    if (selectedFile && selectedFileData.length > 0) {
+    if (selectedCsvFile && selectedCsvData.length > 0) {
+      // Export selected CSV file data
+      exportToCSV(selectedCsvData, selectedCsvFile);
+    } else if (selectedFile && selectedFileData.length > 0) {
+      // Export selected JSON file data
       exportToCSV(selectedFileData, selectedFile);
+    } else {
+      alert('No file selected or no data available to export.');
     }
   };
 
   const exportAllDataAsCSV = () => {
-    const allData = fileData.flatMap(file =>
-      file.data.map(point => ({
-        ...point,
-        filename: file.filename
-      }))
-    );
+    console.log('Export all data requested. CSV files available:', csvFiles.length);
+    console.log('WebSocket state:', wsRef.current?.readyState);
+    
+    // Check if connected to backend
+    if (wsRef.current?.readyState === WebSocket.OPEN && csvFiles.length > 0) {
+      // Show custom confirmation popup
+      setShowZipExportPopup(true);
+    } else if (fileData.length > 0) {
+      // Fallback: Export historical JSON data
+      const allData = fileData.flatMap(file =>
+        file.data.map(point => ({
+          ...point,
+          filename: file.filename
+        }))
+      );
 
-    const csvContent = [
-      'Timestamp,Acceleration,Filename',
-      ...allData.map(point => `${point.timestamp},${point.acceleration},${point.filename}`)
-    ].join('\n');
+      const csvContent = [
+        'Timestamp,Acceleration,Filename',
+        ...allData.map(point => `${point.timestamp},${point.acceleration},${point.filename}`)
+      ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `all_sensor_data_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `all_sensor_data_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      alert('No data available to export. Please ensure the backend is connected and data is being collected.');
+    }
+  };
+  
+  const confirmZipExport = () => {
+    const command = {
+      command: 'export_all_csv_zip'
+    };
+    console.log('Sending ZIP export command:', command);
+    try {
+      wsRef.current?.send(JSON.stringify(command));
+      console.log('ZIP export command sent successfully');
+    } catch (error) {
+      console.error('Failed to send ZIP export command:', error);
+      alert('Failed to send export command. Please check the connection.');
+    }
+    setShowZipExportPopup(false);
+  };
+  
+  const cancelZipExport = () => {
+    setShowZipExportPopup(false);
   };
 
 
@@ -633,7 +794,9 @@ const Dashboard: React.FC = () => {
             </button>
             <div className="text-right">
               <h1 className="text-2xl font-bold">DASHBOARD</h1>
-              <p className="text-sm opacity-90">Total Files: {fileData.length}</p>
+              <p className="text-sm opacity-90">
+                {csvFiles.length > 0 ? `CSV Files: ${csvFiles.length}` : `Total Files: ${fileData.length}`}
+              </p>
             </div>
           </div>
         </div>
@@ -724,15 +887,24 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Data Quality */}
+            {/* Data Statistics Button */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Data Quality</span>
-                <span className="text-sm font-medium text-green-600">Excellent</span>
-              </div>
-              <div className="text-xs text-gray-500">
-                {isConnected ? 'Real-time data streaming' : 'Using historical data'}
-              </div>
+              <button
+                onClick={() => setShowStatsPopup(true)}
+                className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                  isDarkMode
+                    ? 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300'
+                    : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-700'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <BarChart3 className="h-4 w-4 text-[#019c7c]" />
+                  <span className="text-sm font-medium">View Data Statistics</span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  {csvFiles.length} CSV files
+                </div>
+              </button>
             </div>
           </div>
 
@@ -752,20 +924,48 @@ const Dashboard: React.FC = () => {
               </button>
             </div>
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {fileData.map((file) => (
-                <button
-                  key={file.filename}
-                  onClick={() => handleFileSelect(file.filename)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${selectedFile === file.filename
-                    ? 'bg-[#019c7c] text-white'
-                    : isDarkMode
-                      ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              {csvFiles.length > 0 ? (
+                csvFiles.map((file) => (
+                  <button
+                    key={file}
+                    onClick={() => handleCsvFileSelect(file)}
+                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                      selectedCsvFile === file
+                        ? 'bg-[#019c7c] text-white'
+                        : isDarkMode
+                          ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                     }`}
-                >
-                  {file.filename}
-                </button>
-              ))}
+                  >
+                    <div className="text-sm font-medium">{file}</div>
+                    <div className={`text-xs ${
+                      selectedCsvFile === file 
+                        ? 'text-white/70' 
+                        : isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      CSV • Live data
+                    </div>
+                  </button>
+                ))
+              ) : (
+                fileData.map((file) => (
+                  <button
+                    key={file.filename}
+                    onClick={() => handleFileSelect(file.filename)}
+                    className={`w-full text-left p-3 rounded-lg transition-colors ${selectedFile === file.filename
+                      ? 'bg-[#019c7c] text-white'
+                      : isDarkMode
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                  >
+                    <div className="text-sm font-medium">{file.filename}</div>
+                    <div className={`text-xs ${selectedFile === file.filename ? 'text-white/70' : isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      JSON • Historical data
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </div>
 
@@ -785,17 +985,22 @@ const Dashboard: React.FC = () => {
                 <div className="space-y-2">
                   <button
                     onClick={exportSelectedFileAsCSV}
-                    disabled={!selectedFile}
-                    className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between ${selectedFile
-                      ? isDarkMode
-                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      : isDarkMode
-                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                      }`}
+                    disabled={!selectedFile && !selectedCsvFile}
+                    className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between ${
+                      (selectedFile || selectedCsvFile)
+                        ? isDarkMode
+                          ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        : isDarkMode
+                          ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                          : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                    }`}
                   >
-                    <span className="text-sm">Export Selected File as CSV</span>
+                    <span className="text-sm">
+                      Export Selected File as CSV
+                      {selectedCsvFile && <span className="text-xs block text-green-500">• {selectedCsvFile}</span>}
+                      {selectedFile && !selectedCsvFile && <span className="text-xs block text-blue-500">• {selectedFile}</span>}
+                    </span>
                     <FileText className="h-4 w-4" />
                   </button>
 
@@ -806,7 +1011,12 @@ const Dashboard: React.FC = () => {
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                       }`}
                   >
-                    <span className="text-sm">Export All Data as CSV</span>
+                    <span className="text-sm">
+                      {csvFiles.length > 0 ? 'Export All Data as ZIP' : 'Export All Data as CSV'}
+                      <span className="text-xs block text-orange-500">
+                        {csvFiles.length > 0 ? `• ${csvFiles.length} CSV files` : '• Historical data'}
+                      </span>
+                    </span>
                     <FileText className="h-4 w-4" />
                   </button>
                 </div>
@@ -948,20 +1158,20 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Selected file chart */}
-          {selectedFile && (
+          {(selectedFile || selectedCsvFile) && (
             <div className={`rounded-lg p-6 shadow-md transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
               <div className="flex items-center justify-between mb-6">
                 <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                  File: {selectedFile}
+                  File: {selectedCsvFile || selectedFile}
                 </h3>
                 <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Records: {selectedFileData.length}
+                  Records: {selectedCsvFile ? selectedCsvData.length : selectedFileData.length}
                 </div>
               </div>
               <div ref={fileChartRef} className="relative">
                 <ResponsiveContainer width="100%" height={350}>
                   <LineChart
-                    data={selectedFileData.slice(-50)} // Show last 50 points for better performance
+                    data={(selectedCsvFile ? selectedCsvData : selectedFileData).slice(-50)} // Show last 50 points for better performance
                     margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                   >
                     <defs>
@@ -1034,7 +1244,120 @@ const Dashboard: React.FC = () => {
                 <div className="absolute top-4 right-4">
                   <div className={`px-3 py-1 rounded-full text-xs font-medium ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
                     }`}>
-                    Latest {Math.min(50, selectedFileData.length)} points
+                    Latest {Math.min(50, selectedCsvFile ? selectedCsvData.length : selectedFileData.length)} points
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Live Reading Chart */}
+          {isConnected && (
+            <div className={`rounded-lg p-6 shadow-md transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-4">
+                  <Activity className="h-6 w-6 text-[#019c7c]" />
+                  <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                    Live Sensor Reading
+                  </h3>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      Live ({samplingRate} Hz)
+                    </span>
+                  </div>
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Points: {liveData.length}
+                  </div>
+                </div>
+              </div>
+              <div className="relative">
+                {liveData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart
+                      data={liveData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    >
+                      <defs>
+                        <linearGradient id="liveGradient" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8} />
+                          <stop offset="50%" stopColor="#f97316" stopOpacity={1} />
+                          <stop offset="100%" stopColor="#eab308" stopOpacity={0.8} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid
+                        strokeDasharray="2 4"
+                        stroke={isDarkMode ? "#374151" : "#e5e7eb"}
+                        strokeOpacity={0.3}
+                      />
+                      <XAxis
+                        dataKey="timestamp"
+                        stroke={isDarkMode ? "#9ca3af" : "#6b7280"}
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        tickFormatter={(value) => new Date(value).toLocaleTimeString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
+                      />
+                      <YAxis
+                        stroke={isDarkMode ? "#9ca3af" : "#6b7280"}
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        tickFormatter={(value) => `${(value / 1000).toFixed(1)}k`}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+                          border: 'none',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                          color: isDarkMode ? '#ffffff' : '#1f2937',
+                          fontSize: '13px',
+                          padding: '10px 14px'
+                        }}
+                        formatter={(value: number) => [
+                          `${Number(value).toLocaleString()} m/s²`,
+                          'Live Reading'
+                        ]}
+                        labelFormatter={(label) => `Time: ${new Date(label).toLocaleString()}`}
+                        cursor={{ stroke: '#f97316', strokeWidth: 1, strokeDasharray: '4 4' }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="acceleration"
+                        stroke="url(#liveGradient)"
+                        strokeWidth={3}
+                        dot={false}
+                        activeDot={{
+                          r: 6,
+                          fill: '#f97316',
+                          stroke: '#ffffff',
+                          strokeWidth: 2,
+                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+                        }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className={`h-[300px] flex flex-col items-center justify-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mb-4"></div>
+                    <p className="text-lg font-medium">Waiting for live sensor data...</p>
+                    <p className="text-sm opacity-75 mt-1">Connect to backend to see real-time readings</p>
+                  </div>
+                )}
+                
+                {/* Live indicator */}
+                <div className="absolute top-4 right-4">
+                  <div className={`px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-red-500 to-orange-500 text-white`}>
+                    🔴 LIVE
                   </div>
                 </div>
               </div>
@@ -1172,6 +1495,314 @@ const Dashboard: React.FC = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Stats Popup */}
+      {showStatsPopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className={`
+            w-full max-w-2xl mx-4 rounded-2xl shadow-2xl backdrop-blur-xl border transition-all duration-300
+            ${isDarkMode
+              ? 'bg-gray-900/90 border-gray-700/50 text-white'
+              : 'bg-white/90 border-gray-200/50 text-gray-800'
+            }
+          `}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-[#019c7c] rounded-xl">
+                  <BarChart3 className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Data Statistics</h2>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Overview of sensor data collection
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowStatsPopup(false)}
+                className={`
+                  p-2 rounded-xl transition-all duration-200
+                  ${isDarkMode
+                    ? 'hover:bg-gray-700 text-gray-400 hover:text-white'
+                    : 'hover:bg-gray-100 text-gray-600 hover:text-gray-800'
+                  }
+                  hover:scale-105 active:scale-95
+                `}
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Connection Status */}
+              <div className={`
+                p-4 rounded-xl border
+                ${isConnected
+                  ? 'bg-green-500/10 border-green-500/20 text-green-600'
+                  : 'bg-red-500/10 border-red-500/20 text-red-600'
+                }
+              `}>
+                <div className="flex items-center space-x-2">
+                  {isConnected ? (
+                    <Wifi className="h-5 w-5" />
+                  ) : (
+                    <WifiOff className="h-5 w-5" />
+                  )}
+                  <span className="font-medium">
+                    {isConnected ? 'Connected - Real-time data streaming' : 'Disconnected - Using historical data'}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className={`
+                  p-4 rounded-xl border backdrop-blur-sm
+                  ${isDarkMode
+                    ? 'bg-gray-800/50 border-gray-700/50'
+                    : 'bg-gray-50/50 border-gray-200/50'
+                  }
+                `}>
+                  <div className="text-2xl font-bold text-[#019c7c]">{csvFiles.length}</div>
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>CSV Files</div>
+                </div>
+                
+                <div className={`
+                  p-4 rounded-xl border backdrop-blur-sm
+                  ${isDarkMode
+                    ? 'bg-gray-800/50 border-gray-700/50'
+                    : 'bg-gray-50/50 border-gray-200/50'
+                  }
+                `}>
+                  <div className="text-2xl font-bold text-[#019c7c]">{samplingRate}</div>
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Hz Rate</div>
+                </div>
+                
+                <div className={`
+                  p-4 rounded-xl border backdrop-blur-sm
+                  ${isDarkMode
+                    ? 'bg-gray-800/50 border-gray-700/50'
+                    : 'bg-gray-50/50 border-gray-200/50'
+                  }
+                `}>
+                  <div className="text-2xl font-bold text-[#019c7c]">{liveData.length}</div>
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Live Points</div>
+                </div>
+                
+                <div className={`
+                  p-4 rounded-xl border backdrop-blur-sm
+                  ${isDarkMode
+                    ? 'bg-gray-800/50 border-gray-700/50'
+                    : 'bg-gray-50/50 border-gray-200/50'
+                  }
+                `}>
+                  <div className="text-2xl font-bold text-[#019c7c]">
+                    {selectedCsvData.length || selectedFileData.length}
+                  </div>
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Selected Data</div>
+                </div>
+              </div>
+              
+              {/* Additional Info */}
+              <div className={`
+                p-4 rounded-xl border backdrop-blur-sm
+                ${isDarkMode
+                  ? 'bg-gray-800/50 border-gray-700/50'
+                  : 'bg-gray-50/50 border-gray-200/50'
+                }
+              `}>
+                <h3 className="font-semibold mb-3">System Information</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>WebSocket Status:</span>
+                    <span className={wsStatus === 'connected' ? 'text-green-600' : 'text-red-600'}>
+                      {wsStatus.charAt(0).toUpperCase() + wsStatus.slice(1)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Selected File:</span>
+                    <span>{selectedCsvFile || selectedFile || 'None'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Data Structure:</span>
+                    <span>Year/Month/Week/Day/Time.csv</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Export Formats:</span>
+                    <span>CSV, ZIP Archive</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Sampling Rate Confirmation Popup */}
+      {showSamplingRatePopup && pendingSamplingRate !== null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className={`
+            w-full max-w-md mx-4 rounded-2xl shadow-2xl backdrop-blur-xl border transition-all duration-300
+            ${isDarkMode
+              ? 'bg-gray-900/90 border-gray-700/50 text-white'
+              : 'bg-white/90 border-gray-200/50 text-gray-800'
+            }
+          `}>
+            {/* Header */}
+            <div className="flex items-center space-x-3 p-6 border-b border-white/10">
+              <div className="p-3 bg-yellow-500 rounded-xl">
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Confirm Sampling Rate Change</h2>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  This will affect system performance
+                </p>
+              </div>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <div className={`
+                p-4 rounded-xl border backdrop-blur-sm
+                ${isDarkMode
+                  ? 'bg-gray-800/50 border-gray-700/50'
+                  : 'bg-gray-50/50 border-gray-200/50'
+                }
+              `}>
+                <div className="text-center space-y-2">
+                  <div className="text-lg">
+                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Current:</span>
+                    <span className="font-bold text-[#019c7c] mx-2">{samplingRate} Hz</span>
+                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>→</span>
+                    <span className="font-bold text-[#019c7c] mx-2">{pendingSamplingRate} Hz</span>
+                  </div>
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    This change will affect data collection quality and system performance.
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Actions */}
+            <div className="flex space-x-3 p-6 border-t border-white/10">
+              <button
+                onClick={cancelSamplingRateChange}
+                className={`
+                  flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
+                  ${isDarkMode
+                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }
+                  hover:scale-105 active:scale-95
+                `}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSamplingRateChange}
+                className="flex-1 px-4 py-3 bg-[#019c7c] hover:bg-[#018a6f] text-white rounded-xl font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+              >
+                Confirm Change
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* ZIP Export Confirmation Popup */}
+      {showZipExportPopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className={`
+            w-full max-w-md mx-4 rounded-2xl shadow-2xl backdrop-blur-xl border transition-all duration-300
+            ${isDarkMode
+              ? 'bg-gray-900/90 border-gray-700/50 text-white'
+              : 'bg-white/90 border-gray-200/50 text-gray-800'
+            }
+          `}>
+            {/* Header */}
+            <div className="flex items-center space-x-3 p-6 border-b border-white/10">
+              <div className="p-3 bg-[#019c7c] rounded-xl">
+                <Download className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Export All Data as ZIP</h2>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Download complete sensor data archive
+                </p>
+              </div>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <div className={`
+                p-4 rounded-xl border backdrop-blur-sm
+                ${isDarkMode
+                  ? 'bg-gray-800/50 border-gray-700/50'
+                  : 'bg-gray-50/50 border-gray-200/50'
+                }
+              `}>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Total CSV Files:</span>
+                    <span className="font-bold text-[#019c7c]">{csvFiles.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Data Structure:</span>
+                    <span className="text-sm">Year/Month/Week/Day</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Export Format:</span>
+                    <span className="text-sm">ZIP Archive</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className={`
+                p-3 rounded-xl border-l-4 border-blue-500
+                ${isDarkMode
+                  ? 'bg-blue-900/20 text-blue-300'
+                  : 'bg-blue-50 text-blue-700'
+                }
+              `}>
+                <p className="text-sm">
+                  This will download all sensor data files organized by the hierarchical date structure. 
+                  The download will start automatically once the ZIP file is created.
+                </p>
+              </div>
+            </div>
+            
+            {/* Actions */}
+            <div className="flex space-x-3 p-6 border-t border-white/10">
+              <button
+                onClick={cancelZipExport}
+                className={`
+                  flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
+                  ${isDarkMode
+                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }
+                  hover:scale-105 active:scale-95
+                `}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmZipExport}
+                className="flex-1 px-4 py-3 bg-[#019c7c] hover:bg-[#018a6f] text-white rounded-xl font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+              >
+                Export ZIP
+              </button>
             </div>
           </div>
         </div>
