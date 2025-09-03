@@ -50,23 +50,29 @@ const aggregateData = (
   aggregation: AggregationType
 ) => {
   const grouped: Record<string, DataPoint[]> = {};
+  const now = new Date();
 
   data.forEach((d) => {
     const date = new Date(d.timestamp);
     let key: string;
 
-    if (zoom === 'months')
+    if (zoom === 'months') {
       key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    else if (zoom === 'dates')
+    } else if (zoom === 'dates') {
       key = date.toISOString().split('T')[0];
-    else
-      key = `${date.toISOString().split('T')[0]} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    } else {
+      // Group by 2-hour intervals for time zoom, working backwards from current time
+      const hours = date.getHours();
+      const intervalHour = Math.floor(hours / 2) * 2; // Round down to nearest 2-hour interval
+      const timeKey = `${String(intervalHour).padStart(2, '0')}:00`;
+      key = `${date.toISOString().split('T')[0]} ${timeKey}`;
+    }
 
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(d);
   });
 
-  return Object.entries(grouped).map(([key, points]) => {
+  const result = Object.entries(grouped).map(([key, points]) => {
     const values = points.map((p) => p.acceleration);
     let value: number;
 
@@ -75,12 +81,12 @@ const aggregateData = (
       case 'min': value = Math.min(...values); break;
       case 'average':
       case 'mean':
-        value = Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+        value = Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
         break;
       case 'standardDeviation': {
         const mean = values.reduce((a, b) => a + b, 0) / values.length;
         const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
-        value = Math.round(Math.sqrt(variance));
+        value = Math.round(Math.sqrt(variance) * 100) / 100;
         break;
       }
       case 'skewness': {
@@ -93,8 +99,51 @@ const aggregateData = (
       default: value = Math.max(...values);
     }
 
-    return { time: key, acceleration: value, dataPoints: points.length };
-  }).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+    // Format time display for better readability
+    let displayTime = key;
+    if (zoom === 'time') {
+      const datePart = key.split(' ')[0];
+      const timePart = key.split(' ')[1];
+      const keyDate = new Date(datePart);
+      const isToday = keyDate.toDateString() === now.toDateString();
+      const isYesterday = keyDate.toDateString() === new Date(now.getTime() - 24*60*60*1000).toDateString();
+      
+      if (isToday) {
+        displayTime = `Today ${timePart}`;
+      } else if (isYesterday) {
+        displayTime = `Yesterday ${timePart}`;
+      } else {
+        displayTime = `${keyDate.toLocaleDateString()} ${timePart}`;
+      }
+    }
+
+    return { time: displayTime, acceleration: value, dataPoints: points.length };
+  }).sort((a, b) => {
+    // Sort by actual timestamp, not display time
+    const getTimestamp = (item: {time: string}) => {
+      if (item.time.startsWith('Today')) {
+        const timeStr = item.time.replace('Today ', '');
+        const today = new Date();
+        const [hours] = timeStr.split(':').map(Number);
+        return new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours).getTime();
+      } else if (item.time.startsWith('Yesterday')) {
+        const timeStr = item.time.replace('Yesterday ', '');
+        const yesterday = new Date(Date.now() - 24*60*60*1000);
+        const [hours] = timeStr.split(':').map(Number);
+        return new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), hours).getTime();
+      } else {
+        return new Date(item.time).getTime();
+      }
+    };
+    return getTimestamp(a) - getTimestamp(b);
+  });
+
+  // For time zoom, show only the last 12 intervals (24 hours)
+  if (zoom === 'time') {
+    return result.slice(-12);
+  }
+  
+  return result;
 };
 
 const generateHistoricalData = (): FileData[] => {
@@ -107,9 +156,15 @@ const generateHistoricalData = (): FileData[] => {
 
   for (let time = new Date(start); time <= now; time.setHours(time.getHours() + 2)) {
     files.forEach((file) => {
+      // Generate realistic acceleration values (typical range: 0.5 - 2.5 g)
+      // 1g ≈ 9.81 m/s², so range should be ~5-25 m/s²
+      const baseAcceleration = 9.81; // 1g in m/s²
+      const variation = (Math.random() - 0.5) * 1.5; // ±0.75g variation
+      const acceleration = Math.round((baseAcceleration + variation) * 100) / 100; // Round to 2 decimal places
+      
       file.data.push({
         timestamp: new Date(time).toISOString(),
-        acceleration: Math.round(1000 + Math.random() * (16000 - 1000)),
+        acceleration: Math.max(0.1, acceleration), // Ensure minimum positive value
       });
     });
   }
@@ -122,11 +177,11 @@ const Dashboard: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<string>('');
   const [selectedFileData, setSelectedFileData] = useState<DataPoint[]>([]);
   const [mainChartData, setMainChartData] = useState<{ time: string; acceleration: number; dataPoints: number }[]>([]);
-  const [zoomLevel, setZoomLevel] = useState<'months' | 'dates' | 'time'>('months');
+  const [zoomLevel, setZoomLevel] = useState<'months' | 'dates' | 'time'>('time');
   const [aggregationType, setAggregationType] = useState<AggregationType>('max');
   const [domain, setDomain] = useState<[string, string] | undefined>(undefined);
   const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [samplingRate, setSamplingRate] = useState<number>(800);
+  const [samplingRate] = useState<number>(800); // Fixed sampling rate
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const chartRef = useRef<HTMLDivElement>(null);
   const fileChartRef = useRef<HTMLDivElement>(null);
@@ -139,11 +194,12 @@ const Dashboard: React.FC = () => {
   const [liveData, setLiveData] = useState<DataPoint[]>([]);
   const [selectedCsvFile, setSelectedCsvFile] = useState<string>('');
   const [selectedCsvData, setSelectedCsvData] = useState<DataPoint[]>([]);
+  const [realSensorData, setRealSensorData] = useState<DataPoint[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
   
   // Popup states
   const [showStatsPopup, setShowStatsPopup] = useState(false);
-  const [showSamplingRatePopup, setShowSamplingRatePopup] = useState(false);
-  const [pendingSamplingRate, setPendingSamplingRate] = useState<number | null>(null);
+  // Sampling rate popup removed - rate is now fixed
   const [showZipExportPopup, setShowZipExportPopup] = useState(false);
   
   // Notification system
@@ -153,74 +209,43 @@ const Dashboard: React.FC = () => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000); // Auto-dismiss after 4 seconds
   };
-
-  // Dummy folder structure for demonstration
-  const dummyFolderStructure = {
-    "2025": {
-      "01": {
-        "Week_1": {
-          "01": [
-            { filename: "143022.csv", path: "2025/01/Week_1/01/143022.csv", size: 2048, modified: Date.now() / 1000 },
-            { filename: "143023.csv", path: "2025/01/Week_1/01/143023.csv", size: 2156, modified: Date.now() / 1000 },
-            { filename: "143024.csv", path: "2025/01/Week_1/01/143024.csv", size: 1987, modified: Date.now() / 1000 }
-          ],
-          "02": [
-            { filename: "090015.csv", path: "2025/01/Week_1/02/090015.csv", size: 2234, modified: Date.now() / 1000 },
-            { filename: "090016.csv", path: "2025/01/Week_1/02/090016.csv", size: 2098, modified: Date.now() / 1000 }
-          ],
-          "03": [
-            { filename: "120030.csv", path: "2025/01/Week_1/03/120030.csv", size: 2345, modified: Date.now() / 1000 },
-            { filename: "120031.csv", path: "2025/01/Week_1/03/120031.csv", size: 2123, modified: Date.now() / 1000 },
-            { filename: "120032.csv", path: "2025/01/Week_1/03/120032.csv", size: 2267, modified: Date.now() / 1000 }
-          ]
-        },
-        "Week_2": {
-          "08": [
-            { filename: "154500.csv", path: "2025/01/Week_2/08/154500.csv", size: 2456, modified: Date.now() / 1000 },
-            { filename: "154501.csv", path: "2025/01/Week_2/08/154501.csv", size: 2334, modified: Date.now() / 1000 }
-          ],
-          "09": [
-            { filename: "101245.csv", path: "2025/01/Week_2/09/101245.csv", size: 2178, modified: Date.now() / 1000 }
-          ]
-        }
-      },
-      "02": {
-        "Week_1": {
-          "01": [
-            { filename: "083015.csv", path: "2025/02/Week_1/01/083015.csv", size: 2567, modified: Date.now() / 1000 }
-          ]
-        }
-      }
-    },
-    "2024": {
-      "12": {
-        "Week_4": {
-          "28": [
-            { filename: "235959.csv", path: "2024/12/Week_4/28/235959.csv", size: 1876, modified: Date.now() / 1000 }
-          ],
-          "31": [
-            { filename: "235958.csv", path: "2024/12/Week_4/31/235958.csv", size: 2001, modified: Date.now() / 1000 },
-            { filename: "235959.csv", path: "2024/12/Week_4/31/235959.csv", size: 1999, modified: Date.now() / 1000 }
-          ]
-        }
-      }
+  
+  // Function to load recent CSV files and aggregate for main chart
+  const loadRecentSensorData = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      setIsLoadingData(true);
+      
+      // Request recent aggregated data from backend
+      const command = {
+        command: 'get_recent_data'
+      };
+      wsRef.current.send(JSON.stringify(command));
+    } else {
+      showNotification('WebSocket not connected. Cannot load recent data.', 'error');
     }
   };
+
+
 
   // Load historical data once and setup WebSocket
   const handleWebSocketMessage = (data: WebSocketMessage) => {
     switch (data.type) {
       case 'status':
-        // Update connection status and sampling rate from backend
+        // Update connection status from backend
         if (data.data) {
           setIsConnected(data.data.connected);
-          setSamplingRate(data.data.sampling_rate);
+          // Sampling rate is now fixed at 800 Hz
           
-          // Simulate live data for demonstration
+          // Generate realistic live data for demonstration
           if (data.data.connected) {
+            // Generate realistic acceleration values (similar to actual sensor data)
+            const baseAcceleration = 9.81; // 1g in m/s²
+            const variation = (Math.random() - 0.5) * 1.0; // ±0.5g variation
+            const acceleration = Math.round((baseAcceleration + variation) * 100) / 100;
+            
             const newLivePoint = {
               timestamp: new Date().toISOString(),
-              acceleration: Math.round(1000 + Math.random() * 15000)
+              acceleration: Math.max(0.1, acceleration) // Ensure minimum positive value
             };
             setLiveData(prev => {
               const updated = [...prev, newLivePoint];
@@ -234,6 +259,15 @@ const Dashboard: React.FC = () => {
       case 'new_file':
         // Handle new CSV file notification
         console.log('New CSV file created:', data.filename);
+        
+        // Auto-refresh recent data when new files are created
+        setTimeout(() => {
+          if (wsRef.current?.readyState === WebSocket.OPEN && !isLoadingData) {
+            console.log('Auto-refreshing data due to new file:', data.filename);
+            loadRecentSensorData();
+          }
+        }, 1000); // Small delay to ensure file is fully written
+        
         // Request updated file list from backend
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({ command: 'get_file_list' }));
@@ -280,6 +314,29 @@ const Dashboard: React.FC = () => {
         }
         break;
 
+      case 'recent_data':
+        // Handle recent aggregated sensor data for main chart
+        if (data.data) {
+          const recentData = data.data as unknown as DataPoint[];
+          setRealSensorData(recentData);
+          setIsLoadingData(false);
+          
+          // Show timestamp range in notification
+          if (recentData.length > 0) {
+            const firstTime = new Date(recentData[0].timestamp).toLocaleTimeString();
+            const lastTime = new Date(recentData[recentData.length - 1].timestamp).toLocaleTimeString();
+            console.log(`Loaded ${recentData.length} recent data points from ${data.file_count} files`);
+            console.log(`Data range: ${firstTime} to ${lastTime}`);
+            showNotification(
+              `Loaded ${recentData.length} sensor readings (${firstTime} - ${lastTime})`, 
+              'success'
+            );
+          } else {
+            showNotification('No recent sensor data available', 'info');
+          }
+        }
+        break;
+
       case 'file_list':
         // Update file list from backend
         if (data.files && data.files.length > 0) {
@@ -297,14 +354,7 @@ const Dashboard: React.FC = () => {
         break;
 
       case 'command_response':
-        if (data.command === 'set_sampling_rate') {
-          if (data.success && data.new_rate) {
-            setSamplingRate(data.new_rate);
-            console.log(`Sampling rate updated to ${data.new_rate} Hz`);
-          } else {
-            console.error('Failed to update sampling rate');
-          }
-        }
+        // Sampling rate commands removed - rate is now fixed
         break;
 
       case 'error':
@@ -396,6 +446,15 @@ const Dashboard: React.FC = () => {
     };
   }, [connectWebSocket]);
 
+  // Load recent data automatically when connected
+  useEffect(() => {
+    if (isConnected && wsRef.current?.readyState === WebSocket.OPEN && realSensorData.length === 0) {
+      setTimeout(() => {
+        loadRecentSensorData();
+      }, 1000); // Wait a moment after connection
+    }
+  }, [isConnected]);
+
   // Update charts whenever zoom, aggregation, or domain changes
   useEffect(() => {
     if (fileData.length > 0) {
@@ -420,6 +479,20 @@ const Dashboard: React.FC = () => {
       }
     }
   }, [fileData, selectedFile, aggregationType, zoomLevel, domain]);
+
+  // Update main chart with real sensor data when available
+  useEffect(() => {
+    if (realSensorData.length > 0) {
+      let filteredData = realSensorData;
+      if (domain) {
+        const [start, end] = domain;
+        filteredData = realSensorData.filter(
+          (d) => new Date(d.timestamp) >= new Date(start) && new Date(d.timestamp) <= new Date(end)
+        );
+      }
+      setMainChartData(aggregateData(filteredData, zoomLevel, aggregationType));
+    }
+  }, [realSensorData, zoomLevel, aggregationType, domain]);
 
   const handleFileSelect = (filename: string) => {
     setSelectedFile(filename);
@@ -479,41 +552,7 @@ const Dashboard: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  const handleSamplingRateChange = (newRate: number) => {
-    // Show custom confirmation popup instead of browser alert
-    setPendingSamplingRate(newRate);
-    setShowSamplingRatePopup(true);
-  };
-  
-  const confirmSamplingRateChange = () => {
-    if (pendingSamplingRate === null) return;
-    
-    const newRate = pendingSamplingRate;
-    
-    // Send sampling rate change to backend via WebSocket
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const command = {
-        command: 'set_sampling_rate',
-        rate: newRate
-      };
-
-      wsRef.current.send(JSON.stringify(command));
-      console.log(`Sending sampling rate change to backend: ${newRate} Hz`);
-    } else {
-      // If not connected, just update local state
-      setSamplingRate(newRate);
-      console.log(`WebSocket not connected. Local sampling rate set to: ${newRate} Hz`);
-    }
-    
-    // Close popup
-    setShowSamplingRatePopup(false);
-    setPendingSamplingRate(null);
-  };
-  
-  const cancelSamplingRateChange = () => {
-    setShowSamplingRatePopup(false);
-    setPendingSamplingRate(null);
-  };
+  // Sampling rate is now fixed - adjustment functions removed
 
   const exportSelectedFileAsCSV = () => {
     if (selectedCsvFile && selectedCsvData.length > 0) {
@@ -636,12 +675,12 @@ const Dashboard: React.FC = () => {
 
   const openCalendarBrowser = () => {
     setShowCalendarBrowser(true);
-    // Use dummy data for now, or request from backend if connected
+    // Always request real folder structure from backend
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ command: 'get_folder_structure' }));
+      console.log('Requesting real folder structure from backend');
     } else {
-      // Use dummy data for demonstration
-      setFolderStructure(dummyFolderStructure);
+      showNotification('WebSocket not connected. Cannot load real file structure.', 'error');
     }
   };
 
@@ -792,6 +831,23 @@ const Dashboard: React.FC = () => {
             >
               {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
+            
+            {/* Refresh Data Button */}
+            <button
+              onClick={loadRecentSensorData}
+              disabled={wsStatus !== 'connected' || isLoadingData}
+              className={`p-2 rounded-lg transition-colors flex items-center space-x-1 ${
+                wsStatus === 'connected' && !isLoadingData
+                  ? 'hover:bg-[#018a6f] text-white'
+                  : 'text-gray-400 cursor-not-allowed'
+              }`}
+              title="Refresh sensor data to see latest readings"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {isLoadingData && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>}
+            </button>
             <div className="text-right">
               <h1 className="text-2xl font-bold">DASHBOARD</h1>
               <p className="text-sm opacity-90">
@@ -842,48 +898,6 @@ const Dashboard: React.FC = () => {
               <div className="text-xs text-gray-500">
                 {wsStatus === 'connected' ? 'Real-time data streaming' :
                   wsStatus === 'connecting' ? 'Establishing connection...' : 'Using historical data'}
-              </div>
-            </div>
-
-            {/* Sampling Rate Control */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Sampling Rate</span>
-                <span className={`text-lg font-bold text-[#019c7c]`}>{samplingRate} Hz</span>
-              </div>
-
-              {/* Rate Slider */}
-              <div className="mb-3">
-                <input
-                  type="range"
-                  min="100"
-                  max="1000"
-                  step="50"
-                  value={samplingRate}
-                  onChange={(e) => handleSamplingRateChange(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                  style={{
-                    background: `linear-gradient(to right, #019c7c 0%, #019c7c ${(samplingRate - 100) / 9}%, #e5e7eb ${(samplingRate - 100) / 9}%, #e5e7eb 100%)`
-                  }}
-                />
-              </div>
-
-              {/* Quick Rate Buttons */}
-              <div className="flex space-x-2">
-                {[200, 400, 600, 800].map((rate) => (
-                  <button
-                    key={rate}
-                    onClick={() => handleSamplingRateChange(rate)}
-                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${samplingRate === rate
-                      ? 'bg-[#019c7c] text-white'
-                      : isDarkMode
-                        ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                  >
-                    {rate}
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -1099,7 +1113,7 @@ const Dashboard: React.FC = () => {
                       tickLine={false}
                       axisLine={false}
                       tickMargin={10}
-                      tickFormatter={(value) => `${(value / 1000).toFixed(1)}k`}
+                      tickFormatter={(value) => `${value.toFixed(1)}`}
                     />
                     <Tooltip
                       contentStyle={{
@@ -1112,7 +1126,7 @@ const Dashboard: React.FC = () => {
                         padding: '12px 16px'
                       }}
                       formatter={(value: number) => [
-                        `${Number(value).toLocaleString()} m/s²`,
+                        `${Number(value).toFixed(2)} m/s²`,
                         aggregationType.charAt(0).toUpperCase() + aggregationType.slice(1)
                       ]}
                       labelFormatter={(label) => {
@@ -1204,7 +1218,7 @@ const Dashboard: React.FC = () => {
                       tickLine={false}
                       axisLine={false}
                       tickMargin={8}
-                      tickFormatter={(value) => `${(value / 1000).toFixed(1)}k`}
+                      tickFormatter={(value) => `${value.toFixed(1)}`}
                     />
                     <Tooltip
                       contentStyle={{
@@ -1217,7 +1231,7 @@ const Dashboard: React.FC = () => {
                         padding: '10px 14px'
                       }}
                       formatter={(value: number) => [
-                        `${Number(value).toLocaleString()} m/s²`,
+                        `${Number(value).toFixed(2)} m/s²`,
                         'Acceleration'
                       ]}
                       labelFormatter={(label) => `Time: ${new Date(label).toLocaleString()}`}
@@ -1311,7 +1325,7 @@ const Dashboard: React.FC = () => {
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
-                        tickFormatter={(value) => `${(value / 1000).toFixed(1)}k`}
+                        tickFormatter={(value) => `${value.toFixed(1)}`}
                       />
                       <Tooltip
                         contentStyle={{
@@ -1324,7 +1338,7 @@ const Dashboard: React.FC = () => {
                           padding: '10px 14px'
                         }}
                         formatter={(value: number) => [
-                          `${Number(value).toLocaleString()} m/s²`,
+                          `${Number(value).toFixed(2)} m/s²`,
                           'Live Reading'
                         ]}
                         labelFormatter={(label) => `Time: ${new Date(label).toLocaleString()}`}
@@ -1424,7 +1438,7 @@ const Dashboard: React.FC = () => {
 
               {/* Content Area */}
               <div className="p-8 overflow-y-auto max-h-[60vh]">
-                {Object.keys(folderStructure).length === 0 && Object.keys(dummyFolderStructure).length === 0 ? (
+                {Object.keys(folderStructure).length === 0 ? (
                   <div className="text-center py-12">
                     <div className={`
                       inline-flex p-6 rounded-2xl mb-6
@@ -1434,10 +1448,12 @@ const Dashboard: React.FC = () => {
                       <Calendar className={`h-16 w-16 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
                     </div>
                     <h3 className={`text-xl font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                      No CSV files found
+                      {wsStatus === 'connected' ? 'Loading CSV files...' : 'No CSV files found'}
                     </h3>
                     <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Start collecting sensor data to see files organized by date
+                      {wsStatus === 'connected' 
+                        ? 'Please wait while we load your sensor data files'
+                        : 'Connect to backend to see files organized by date'}
                     </p>
                   </div>
                 ) : (
@@ -1455,7 +1471,7 @@ const Dashboard: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="text-sm font-medium">
-                          Structure: Year → Month → Week → Day → Files
+                          Real CSV Files - Structure: Year → Month → Week → Day → Files
                         </span>
                       </div>
                     </div>
@@ -1469,7 +1485,7 @@ const Dashboard: React.FC = () => {
                       }
                     `}>
                       <div className="space-y-2">
-                        {Object.entries(Object.keys(folderStructure).length ? folderStructure : dummyFolderStructure).map(([year, yearContent]) =>
+                        {Object.entries(folderStructure).map(([year, yearContent]) =>
                           renderFolderNode(year, yearContent as Record<string, unknown>, year, 0)
                         )}
                       </div>
@@ -1646,80 +1662,6 @@ const Dashboard: React.FC = () => {
         </div>
       )}
       
-      {/* Sampling Rate Confirmation Popup */}
-      {showSamplingRatePopup && pendingSamplingRate !== null && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className={`
-            w-full max-w-md mx-4 rounded-2xl shadow-2xl backdrop-blur-xl border transition-all duration-300
-            ${isDarkMode
-              ? 'bg-gray-900/90 border-gray-700/50 text-white'
-              : 'bg-white/90 border-gray-200/50 text-gray-800'
-            }
-          `}>
-            {/* Header */}
-            <div className="flex items-center space-x-3 p-6 border-b border-white/10">
-              <div className="p-3 bg-yellow-500 rounded-xl">
-                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 15.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">Confirm Sampling Rate Change</h2>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  This will affect system performance
-                </p>
-              </div>
-            </div>
-            
-            {/* Content */}
-            <div className="p-6 space-y-4">
-              <div className={`
-                p-4 rounded-xl border backdrop-blur-sm
-                ${isDarkMode
-                  ? 'bg-gray-800/50 border-gray-700/50'
-                  : 'bg-gray-50/50 border-gray-200/50'
-                }
-              `}>
-                <div className="text-center space-y-2">
-                  <div className="text-lg">
-                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Current:</span>
-                    <span className="font-bold text-[#019c7c] mx-2">{samplingRate} Hz</span>
-                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>→</span>
-                    <span className="font-bold text-[#019c7c] mx-2">{pendingSamplingRate} Hz</span>
-                  </div>
-                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    This change will affect data collection quality and system performance.
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Actions */}
-            <div className="flex space-x-3 p-6 border-t border-white/10">
-              <button
-                onClick={cancelSamplingRateChange}
-                className={`
-                  flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200
-                  ${isDarkMode
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }
-                  hover:scale-105 active:scale-95
-                `}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmSamplingRateChange}
-                className="flex-1 px-4 py-3 bg-[#019c7c] hover:bg-[#018a6f] text-white rounded-xl font-medium transition-all duration-200 hover:scale-105 active:scale-95"
-              >
-                Confirm Change
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* ZIP Export Confirmation Popup */}
       {showZipExportPopup && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
@@ -1804,6 +1746,52 @@ const Dashboard: React.FC = () => {
                 Export ZIP
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Notification Toast */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg border transition-all duration-300 ${
+          notification.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+          notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+          'bg-blue-50 border-blue-200 text-blue-800'
+        }`}>
+          <div className="flex items-center space-x-3">
+            <div className={`flex-shrink-0 ${
+              notification.type === 'success' ? 'text-green-400' :
+              notification.type === 'error' ? 'text-red-400' :
+              'text-blue-400'
+            }`}>
+              {notification.type === 'success' ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              ) : notification.type === 'error' ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium">{notification.message}</p>
+            </div>
+            <button
+              onClick={() => setNotification(null)}
+              className={`flex-shrink-0 ml-4 text-gray-400 hover:text-gray-600 ${
+                notification.type === 'success' ? 'hover:text-green-600' :
+                notification.type === 'error' ? 'hover:text-red-600' :
+                'hover:text-blue-600'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Real-time sensor service with CSV generation
+Real-time sensor service with optimized CSV generation
 """
 
 import time
@@ -10,6 +10,8 @@ from datetime import datetime
 from mpu6050 import mpu6050
 from csv_generator import CSVGenerator
 import json
+import os
+import psutil
 
 class SensorService:
     def __init__(self, initial_sampling_rate: int = 800):
@@ -39,12 +41,41 @@ class SensorService:
         print(f"Initial sampling rate: {initial_sampling_rate} Hz")
     
     def connect_sensor(self) -> bool:
-        """Connect to MPU6050 sensor"""
+        """Connect to MPU6050 sensor with maximum performance settings"""
         try:
+            # Initialize with optimized I2C settings
             self.mpu = mpu6050(0x68)  # Default I2C address
-            self.connected = True
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Sensor connected successfully")
-            return True
+            
+            # Set maximum performance MPU6050 configuration
+            try:
+                # Aggressive configuration for maximum speed
+                self.mpu.bus.write_byte_data(self.mpu.address, 0x6B, 0)    # PWR_MGMT_1 - wake up, no sleep
+                self.mpu.bus.write_byte_data(self.mpu.address, 0x19, 0)    # SMPLRT_DIV = 0 (1kHz internal rate)
+                self.mpu.bus.write_byte_data(self.mpu.address, 0x1A, 0)    # CONFIG - DLPF disabled for max bandwidth
+                self.mpu.bus.write_byte_data(self.mpu.address, 0x1B, 0x00) # GYRO_CONFIG - +/- 250°/s, no self-test
+                self.mpu.bus.write_byte_data(self.mpu.address, 0x1C, 0x00) # ACCEL_CONFIG - +/- 2g, no self-test
+                self.mpu.bus.write_byte_data(self.mpu.address, 0x6C, 0)    # PWR_MGMT_2 - no standby
+                
+                # Pre-cache register addresses for faster access
+                self.accel_x_reg = 0x3B
+                self.accel_y_reg = 0x3D
+                self.accel_z_reg = 0x3F
+                
+                # Test read to verify connection and warm up I2C
+                test_data = self.mpu.get_accel_data()
+                
+                self.connected = True
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] Sensor connected with maximum performance settings")
+                print(f"Initial test reading: X={test_data['x']:.2f}, Y={test_data['y']:.2f}, Z={test_data['z']:.2f}")
+                return True
+                
+            except Exception as config_error:
+                print(f"Warning: Could not set aggressive MPU6050 settings: {config_error}")
+                # Fall back to default settings
+                self.connected = True
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] Sensor connected with default settings")
+                return True
+                
         except Exception as e:
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Sensor connection failed: {e}")
             self.mpu = None
@@ -57,22 +88,7 @@ class SensorService:
         self.connected = False
         print("Sensor disconnected")
     
-    def update_sampling_rate(self, new_rate: int):
-        """Update sampling rate dynamically"""
-        with self.lock:
-            if new_rate < 100 or new_rate > 1000:
-                print(f"Invalid sampling rate: {new_rate}. Must be between 100-1000 Hz")
-                return False
-            
-            old_rate = self.sampling_rate
-            self.sampling_rate = new_rate
-            self.sample_interval = 1.0 / new_rate
-            
-            # Update CSV generator
-            self.csv_generator.update_sampling_rate(new_rate)
-            
-            print(f"Sampling rate changed: {old_rate} Hz → {new_rate} Hz")
-            return True
+    # Sampling rate is now fixed at initialization - no dynamic updates
     
     def get_status(self) -> dict:
         """Get current service status"""
@@ -87,7 +103,7 @@ class SensorService:
         }
     
     def start(self):
-        """Start the sensor service"""
+        """Start the sensor service with maximum priority"""
         if self.running:
             print("Service is already running")
             return
@@ -95,13 +111,37 @@ class SensorService:
         self.running = True
         self.paused = False
         
-        print("Starting sensor service...")
+        print("Starting high-performance sensor service...")
+        print(f"Target: {self.sampling_rate} Hz sampling rate")
         
-        # Start the main sensor loop in a separate thread
-        self.sensor_thread = threading.Thread(target=self._sensor_loop, daemon=True)
+        # Set maximum process priority for sensor thread
+        try:
+            # Set high priority (requires no sudo for small increases)
+            os.nice(-5)  # Increase priority (negative = higher priority)
+            print("Process priority optimized")
+        except PermissionError:
+            print("Could not set high priority (requires root)")
+        
+        # Set CPU affinity to dedicate a core (if possible)
+        try:
+            process = psutil.Process()
+            # Pin to CPU core 3 (usually least used on Pi 4)
+            process.cpu_affinity([3])
+            print("CPU affinity set to core 3 for maximum performance")
+        except (PermissionError, psutil.NoSuchProcess):
+            print("Could not set CPU affinity")
+        
+        # Start the optimized sensor loop in a separate thread
+        self.sensor_thread = threading.Thread(
+            target=self._sensor_loop, 
+            daemon=True,
+            name="HighPerformance-Sensor"
+        )
+        
+        # Set thread priority if possible
         self.sensor_thread.start()
         
-        print("Sensor service started")
+        print("High-performance sensor service started")
     
     def stop(self):
         """Stop the sensor service"""
@@ -116,8 +156,9 @@ class SensorService:
         if hasattr(self, 'sensor_thread'):
             self.sensor_thread.join(timeout=2)
         
-        # Save any remaining data
+        # Save any remaining data and cleanup
         self.csv_generator.force_save()
+        self.csv_generator.cleanup()
         
         print("Sensor service stopped")
     
@@ -132,63 +173,112 @@ class SensorService:
         print("Data collection resumed")
     
     def _sensor_loop(self):
-        """Main sensor reading loop"""
-        print("Sensor loop started")
+        """Optimized sensor loop for high-frequency sampling"""
+        print(f"Sensor loop started - Target: {self.sampling_rate} Hz")
+        
+        # Pre-calculate timing constants for maximum performance
+        target_interval = 1.0 / self.sampling_rate
+        samples_per_status = self.sampling_rate
+        
+        # Pre-allocate variables to avoid repeated allocation
+        sample_count = 0
+        last_status_time = time.perf_counter()
+        last_second_boundary = None
+        samples_this_second = 0
+        
+        # Optimization: pre-import needed functions
+        perf_counter = time.perf_counter
+        datetime_now = datetime.now
+        
+        print(f"Target interval: {target_interval*1000:.3f}ms per sample")
         
         while self.running:
             if self.paused:
-                time.sleep(0.1)
+                time.sleep(0.001)
                 continue
             
-            # Try to connect if not connected
+            # Fast connection check
             if not self.connected:
                 if not self.connect_sensor():
-                    time.sleep(2)  # Wait before retry
+                    time.sleep(0.1)
                     continue
             
             try:
-                loop_start = time.time()
-                current_time = datetime.now()
-                current_second = current_time.replace(microsecond=0)
+                # High precision timing start
+                loop_start = perf_counter()
                 
-                # Reset counter for new second
-                if self.last_second != current_second:
-                    if self.samples_this_second > 0:
-                        print(f"[{current_second.strftime('%H:%M:%S')}] Completed second with {self.samples_this_second} samples")
-                    self.samples_this_second = 0
-                    self.last_second = current_second
+                # Get timestamp once and reuse
+                current_time = datetime_now()
                 
-                # Read sensor data
-                accel_data = self.mpu.get_accel_data()
-                x, y, z = accel_data['x'], accel_data['y'], accel_data['z']
+                # Optimized sensor read - direct I2C access
+                try:
+                    # Read all 6 bytes in one I2C transaction (most efficient)
+                    raw_data = self.mpu.bus.read_i2c_block_data(self.mpu.address, 0x3B, 6)
+                    
+                    # Fast data conversion - avoid float operations where possible
+                    accel_x = (raw_data[0] << 8 | raw_data[1])
+                    if accel_x > 32767: accel_x -= 65536
+                    accel_y = (raw_data[2] << 8 | raw_data[3])
+                    if accel_y > 32767: accel_y -= 65536
+                    accel_z = (raw_data[4] << 8 | raw_data[5])
+                    if accel_z > 32767: accel_z -= 65536
+                    
+                    # Convert to g-force (MPU6050 sensitivity: 16384 LSB/g for ±2g range)
+                    x = accel_x / 16384.0
+                    y = accel_y / 16384.0
+                    z = accel_z / 16384.0
+                    
+                except Exception:
+                    # Fallback to library method if direct access fails
+                    accel_data = self.mpu.get_accel_data()
+                    x, y, z = accel_data['x'], accel_data['y'], accel_data['z']
                 
-                # Calculate total acceleration magnitude
-                acceleration = (x**2 + y**2 + z**2)**0.5
+                # Fast magnitude calculation
+                acceleration_squared = x*x + y*y + z*z
+                acceleration = acceleration_squared ** 0.5
                 
-                # Add to CSV generator
-                self.csv_generator.add_sample(current_time, acceleration)
+                # Optimized CSV generation
+                self.csv_generator.add_sample_ultra_fast(current_time, acceleration)
                 
-                # Update counters
-                with self.lock:
-                    self.total_samples += 1
-                    self.samples_this_second += 1
+                # Minimal counter updates
+                sample_count += 1
+                samples_this_second += 1
                 
-                # Calculate sleep time to maintain target sampling rate
-                elapsed = time.time() - loop_start
-                sleep_time = max(0, self.sample_interval - elapsed)
+                # Update status infrequently to minimize overhead
+                current_perf_time = perf_counter()
+                if current_perf_time - last_status_time >= 1.0:
+                    current_second = current_time.replace(microsecond=0)
+                    if last_second_boundary != current_second:
+                        if samples_this_second > 0:
+                            print(f"[{current_second.strftime('%H:%M:%S')}] Achieved {samples_this_second} samples/sec (Target: {self.sampling_rate})")
+                        samples_this_second = 0
+                        last_second_boundary = current_second
+                    last_status_time = current_perf_time
+                
+                # Precise timing control
+                elapsed = perf_counter() - loop_start
+                sleep_time = target_interval - elapsed
                 
                 if sleep_time > 0:
-                    time.sleep(sleep_time)
+                    if sleep_time > 0.0005:  # 0.5ms threshold for sleep vs busy-wait
+                        time.sleep(sleep_time)
+                    else:
+                        # Aggressive busy-wait for sub-millisecond precision
+                        target_time = loop_start + target_interval
+                        while perf_counter() < target_time:
+                            pass
                 else:
-                    # If we're running behind, log it occasionally
-                    if self.total_samples % 1000 == 0:
-                        print(f"Warning: Running {elapsed - self.sample_interval:.4f}s behind target")
+                    # Log performance issues less frequently
+                    if sample_count % (self.sampling_rate * 10) == 0:
+                        behind_ms = (elapsed - target_interval) * 1000
+                        achieved_hz = 1.0 / elapsed if elapsed > 0 else 0
+                        print(f"Performance: {behind_ms:.1f}ms behind, achieving ~{achieved_hz:.0f} Hz")
                 
             except Exception as e:
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] Sensor read error: {e}")
+                print(f"[{datetime_now().strftime('%H:%M:%S')}] Sensor error: {e}")
                 self.connected = False
                 self.mpu = None
-                time.sleep(1)  # Brief pause before reconnection attempt
+                time.sleep(0.01)
         
         print("Sensor loop ended")
     
@@ -204,13 +294,7 @@ def main():
         service.start()
         
         # Let it run for a few seconds
-        time.sleep(5)
-        
-        # Test sampling rate change
-        print("\nChanging sampling rate to 400 Hz...")
-        service.update_sampling_rate(400)
-        
-        time.sleep(3)
+        time.sleep(8)
         
         # Show status
         status = service.get_status()
