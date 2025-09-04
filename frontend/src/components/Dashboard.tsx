@@ -151,6 +151,28 @@ const Dashboard: React.FC = () => {
   const [samplingRate] = useState<number>(800); // Fixed sampling rate
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [backendStatus, setBackendStatus] = useState<{ csvFiles: number; totalSamples: number; samplingRate: number; latestFile?: string } | null>(null);
+  const verboseLogs = false;
+  const describeEvent = (ev: unknown): string => {
+    try {
+      if (!ev) return '';
+      if (typeof ev === 'string') return ev;
+      if (typeof ev === 'object') {
+        const anyEv = ev as { type?: string; message?: string; code?: number; reason?: string; wasClean?: boolean };
+        const out: Record<string, unknown> = {};
+        if (anyEv.type) out.type = anyEv.type;
+        if (anyEv.message) out.message = anyEv.message;
+        if (typeof anyEv.code === 'number') out.code = anyEv.code;
+        if (anyEv.reason) out.reason = anyEv.reason;
+        if (typeof anyEv.wasClean === 'boolean') out.wasClean = anyEv.wasClean;
+        const json = JSON.stringify(out);
+        return json === '{}' ? '' : json;
+      }
+      const s = String(ev);
+      return s === '[object Event]' ? '' : s;
+    } catch {
+      return '';
+    }
+  };
   const chartRef = useRef<HTMLDivElement>(null);
   const fileChartRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -362,7 +384,7 @@ const Dashboard: React.FC = () => {
       const ws = new WebSocket('ws://localhost:8765');
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        if (verboseLogs) console.log('WebSocket connected');
         setWsStatus('connected');
         setIsConnected(true);
         wsRef.current = ws;
@@ -377,12 +399,14 @@ const Dashboard: React.FC = () => {
           const data = JSON.parse(event.data);
           handleWebSocketMessage(data);
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          const info = describeEvent(error);
+          if (verboseLogs && info) console.debug('WS parse error:', info);
         }
       };
 
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
+      ws.onclose = (event) => {
+        const info = describeEvent(event);
+        if (verboseLogs && info) console.debug('WS closed:', info, 'state:', { url: ws.url, ts: new Date().toISOString() });
         setWsStatus('disconnected');
         setIsConnected(false);
         wsRef.current = null;
@@ -397,14 +421,12 @@ const Dashboard: React.FC = () => {
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error details:', {
-          error: error,
-          readyState: ws.readyState,
-          url: ws.url,
-          timestamp: new Date().toISOString()
-        });
+        const info = describeEvent(error);
+        if (verboseLogs && info) console.debug('WS error:', info, 'state:', { readyState: ws.readyState, url: ws.url, ts: new Date().toISOString() });
         setWsStatus('disconnected');
         setIsConnected(false);
+        // Ensure we attempt reconnect if onclose is not triggered
+        // (disabled per user request)
       };
 
     } catch (error) {
