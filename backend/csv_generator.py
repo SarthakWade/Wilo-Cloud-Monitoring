@@ -34,6 +34,11 @@ class CSVGenerator:
         print(f"Sampling rate: {sampling_rate} Hz")
         print(f"Readings directory: {self.readings_dir.absolute()}")
         
+    def _format_ms(self, ms_value: float) -> str:
+        """Format milliseconds with up to 4 decimal places and 'ms' suffix"""
+        s = f"{ms_value:.4f}".rstrip('0').rstrip('.')
+        return f"{s}ms"
+        
     def add_sample(self, timestamp: datetime, acceleration: float):
         """Add a sensor sample to the current buffer"""
         with self.buffer_lock:
@@ -49,8 +54,10 @@ class CSVGenerator:
             self.current_second = current_sec
             
             # Add sample to buffer
+            # Time within the current second in milliseconds
+            time_ms = timestamp.microsecond / 1000.0
             sample = {
-                'timestamp': timestamp.isoformat(),
+                'time_ms': self._format_ms(time_ms),
                 'acceleration': round(acceleration, 4)
             }
             self.current_buffer.append(sample)
@@ -62,8 +69,9 @@ class CSVGenerator:
     
     def add_sample_ultra_fast(self, timestamp: datetime, acceleration: float):
         """Optimized version for high-frequency sampling with minimal overhead"""
-        # Pre-format timestamp string for performance
-        timestamp_str = f"{timestamp.year:04d}-{timestamp.month:02d}-{timestamp.day:02d}T{timestamp.hour:02d}:{timestamp.minute:02d}:{timestamp.second:02d}.{timestamp.microsecond:06d}"
+        # Pre-compute time within second in milliseconds for performance
+        time_ms_value = timestamp.microsecond / 1000.0
+        time_ms_str = self._format_ms(time_ms_value)
         current_sec = timestamp.replace(microsecond=0)
         
         # Minimal locking - only when absolutely necessary
@@ -86,7 +94,7 @@ class CSVGenerator:
                 self.current_second = current_sec
         
         # Add sample - fastest possible append
-        sample_data = (timestamp_str, round(acceleration, 4))
+        sample_data = (time_ms_str, round(acceleration, 4))
         self.current_buffer.append(sample_data)
         
         # Check if buffer full (targeting sampling rate)
@@ -124,11 +132,11 @@ class CSVGenerator:
             # Optimized file writing
             with open(filepath, 'w', newline='', buffering=8192) as csvfile:
                 # Write header once
-                csvfile.write('Timestamp,Acceleration\n')
+                csvfile.write('Time (ms),Acceleration\n')
                 
                 # Fast data writing - avoid csv.writer overhead
-                for timestamp_str, acceleration in buffer_data:
-                    csvfile.write(f'{timestamp_str},{acceleration}\n')
+                for time_ms_str, acceleration in buffer_data:
+                    csvfile.write(f'{time_ms_str},{acceleration}\n')
             
             self.file_count += 1
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Saved {len(buffer_data)} samples to {filename} (Target: {self.sampling_rate})")
@@ -163,11 +171,11 @@ class CSVGenerator:
                 writer = csv.writer(csvfile)
                 
                 # Write header
-                writer.writerow(['Timestamp', 'Acceleration'])
+                writer.writerow(['Time (ms)', 'Acceleration'])
                 
                 # Write data
                 for sample in self.current_buffer:
-                    writer.writerow([sample['timestamp'], sample['acceleration']])
+                    writer.writerow([sample['time_ms'], sample['acceleration']])
             
             self.file_count += 1
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Saved {len(self.current_buffer)} samples to {filename}")
@@ -209,11 +217,11 @@ class CSVGenerator:
                 writer = csv.writer(csvfile)
                 
                 # Write header
-                writer.writerow(['Timestamp', 'Acceleration'])
+                writer.writerow(['Time (ms)', 'Acceleration'])
                 
                 # Write data efficiently
                 for sample in buffer_data:
-                    writer.writerow([sample['timestamp'], sample['acceleration']])
+                    writer.writerow([sample['time_ms'], sample['acceleration']])
             
             self.file_count += 1
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Saved {len(buffer_data)} samples to {filename} (Target: {self.sampling_rate})")
@@ -291,29 +299,24 @@ class CSVGenerator:
         files = self.get_file_list()
         return files[0] if files else None
     
-    def cleanup_old_files(self, days_to_keep: int = 365):
-        """Remove CSV files older than specified days (default: 1 year)"""
-        cutoff_date = datetime.now() - timedelta(days=days_to_keep)
+    def cleanup_old_files(self, days_to_keep: int = 7):
+        """Remove CSV files older than specified days (default: 7 days).
+        Uses file modification time and traverses the full readings tree.
+        """
+        cutoff_ts = (datetime.now() - timedelta(days=days_to_keep)).timestamp()
         removed_count = 0
-        
         try:
-            for csv_file in self.readings_dir.glob("*.csv"):
-                # Parse date from filename
+            for csv_file in self.readings_dir.rglob("*.csv"):
                 try:
-                    date_str = csv_file.stem[:8]  # YYYYMMDD part
-                    file_date = datetime.strptime(date_str, "%Y%m%d")
-                    
-                    if file_date < cutoff_date:
+                    if csv_file.stat().st_mtime < cutoff_ts:
                         csv_file.unlink()
                         removed_count += 1
-                        
-                except ValueError:
-                    # Skip files that don't match our naming convention
+                except FileNotFoundError:
                     continue
-            
+                except Exception as inner_e:
+                    print(f"Warning: failed to delete {csv_file}: {inner_e}")
             if removed_count > 0:
-                print(f"Cleaned up {removed_count} old CSV files")
-                
+                print(f"Cleaned up {removed_count} old CSV files (>{days_to_keep} days)")
         except Exception as e:
             print(f"Error during cleanup: {e}")
     

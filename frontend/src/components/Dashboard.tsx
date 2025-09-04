@@ -13,10 +13,6 @@ interface DataPoint {
   acceleration: number;
 }
 
-interface FileData {
-  filename: string;
-  data: DataPoint[];
-}
 
 interface WebSocketMessage {
   type: string;
@@ -146,36 +142,7 @@ const aggregateData = (
   return result;
 };
 
-const generateHistoricalData = (): FileData[] => {
-  const start = new Date('2025-01-01T00:00:00');
-  const now = new Date();
-  const files: FileData[] = [
-    { filename: 'SimFile_1.json', data: [] },
-    { filename: 'SimFile_2.json', data: [] }
-  ];
-
-  for (let time = new Date(start); time <= now; time.setHours(time.getHours() + 2)) {
-    files.forEach((file) => {
-      // Generate realistic acceleration values (typical range: 0.5 - 2.5 g)
-      // 1g ≈ 9.81 m/s², so range should be ~5-25 m/s²
-      const baseAcceleration = 9.81; // 1g in m/s²
-      const variation = (Math.random() - 0.5) * 1.5; // ±0.75g variation
-      const acceleration = Math.round((baseAcceleration + variation) * 100) / 100; // Round to 2 decimal places
-      
-      file.data.push({
-        timestamp: new Date(time).toISOString(),
-        acceleration: Math.max(0.1, acceleration), // Ensure minimum positive value
-      });
-    });
-  }
-
-  return files;
-};
-
 const Dashboard: React.FC = () => {
-  const [fileData, setFileData] = useState<FileData[]>([]);
-  const [selectedFile, setSelectedFile] = useState<string>('');
-  const [selectedFileData, setSelectedFileData] = useState<DataPoint[]>([]);
   const [mainChartData, setMainChartData] = useState<{ time: string; acceleration: number; dataPoints: number }[]>([]);
   const [zoomLevel, setZoomLevel] = useState<'months' | 'dates' | 'time'>('time');
   const [aggregationType, setAggregationType] = useState<AggregationType>('max');
@@ -183,6 +150,7 @@ const Dashboard: React.FC = () => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [samplingRate] = useState<number>(800); // Fixed sampling rate
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [backendStatus, setBackendStatus] = useState<{ csvFiles: number; totalSamples: number; samplingRate: number; latestFile?: string } | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const fileChartRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -214,20 +182,28 @@ const Dashboard: React.FC = () => {
   const loadRecentSensorData = () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       setIsLoadingData(true);
-      
-      // Request recent aggregated data from backend
-      const command = {
-        command: 'get_recent_data'
-      };
+      const command = { command: 'get_recent_data' };
       wsRef.current.send(JSON.stringify(command));
     } else {
-      showNotification('WebSocket not connected. Cannot load recent data.', 'error');
+      // Try to reconnect and then fetch
+      showNotification('Trying to reconnect to backend…', 'info');
+      connectWebSocket();
+      setTimeout(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          setIsLoadingData(true);
+          wsRef.current.send(JSON.stringify({ command: 'get_status' }));
+          wsRef.current.send(JSON.stringify({ command: 'get_file_list' }));
+          wsRef.current.send(JSON.stringify({ command: 'get_recent_data' }));
+        } else {
+          showNotification('Reconnection failed. Please ensure backend is running.', 'error');
+        }
+      }, 1200);
     }
   };
 
 
 
-  // Load historical data once and setup WebSocket
+  // Setup WebSocket
   const handleWebSocketMessage = (data: WebSocketMessage) => {
     switch (data.type) {
       case 'status':
@@ -235,6 +211,15 @@ const Dashboard: React.FC = () => {
         if (data.data) {
           setIsConnected(data.data.connected);
           // Sampling rate is now fixed at 800 Hz
+          // Update backend-derived stats for realtime display
+          try {
+            setBackendStatus({
+              csvFiles: (data as any).data.csv_files ?? 0,
+              totalSamples: (data as any).data.total_samples ?? 0,
+              samplingRate: (data as any).data.sampling_rate ?? samplingRate,
+              latestFile: (data as any).data.latest_file
+            });
+          } catch {}
           
           // Generate realistic live data for demonstration
           if (data.data.connected) {
@@ -430,11 +415,6 @@ const Dashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const data = generateHistoricalData();
-    setFileData(data);
-    setSelectedFile(data[0].filename);
-    setSelectedFileData(data[0].data);
-
     // Auto-connect to WebSocket on component mount
     connectWebSocket();
 
@@ -455,30 +435,21 @@ const Dashboard: React.FC = () => {
     }
   }, [isConnected]);
 
-  // Update charts whenever zoom, aggregation, or domain changes
+  // Update main chart whenever real sensor data changes or view changes
   useEffect(() => {
-    if (fileData.length > 0) {
-      let filteredData = fileData.flatMap((f) => f.data);
+    if (realSensorData.length > 0) {
+      let filteredData = realSensorData;
       if (domain) {
         const [start, end] = domain;
-        filteredData = filteredData.filter(
+        filteredData = realSensorData.filter(
           (d) => new Date(d.timestamp) >= new Date(start) && new Date(d.timestamp) <= new Date(end)
         );
       }
       setMainChartData(aggregateData(filteredData, zoomLevel, aggregationType));
-
-      const file = fileData.find((f) => f.filename === selectedFile);
-      if (file) {
-        setSelectedFileData(
-          domain
-            ? file.data.filter(
-              (d) => new Date(d.timestamp) >= new Date(domain[0]) && new Date(d.timestamp) <= new Date(domain[1])
-            )
-            : file.data
-        );
-      }
+    } else {
+      setMainChartData([]);
     }
-  }, [fileData, selectedFile, aggregationType, zoomLevel, domain]);
+  }, [realSensorData, zoomLevel, aggregationType, domain]);
 
   // Update main chart with real sensor data when available
   useEffect(() => {
@@ -494,11 +465,7 @@ const Dashboard: React.FC = () => {
     }
   }, [realSensorData, zoomLevel, aggregationType, domain]);
 
-  const handleFileSelect = (filename: string) => {
-    setSelectedFile(filename);
-    const file = fileData.find((f) => f.filename === filename);
-    if (file) setSelectedFileData(file.data);
-  };
+  // Removed historical file selection
 
   const handleCsvFileSelect = (csvFilename: string) => {
     // Request CSV data from backend via WebSocket
@@ -556,49 +523,17 @@ const Dashboard: React.FC = () => {
 
   const exportSelectedFileAsCSV = () => {
     if (selectedCsvFile && selectedCsvData.length > 0) {
-      // Export selected CSV file data
       exportToCSV(selectedCsvData, selectedCsvFile);
-    } else if (selectedFile && selectedFileData.length > 0) {
-      // Export selected JSON file data
-      exportToCSV(selectedFileData, selectedFile);
     } else {
-      alert('No file selected or no data available to export.');
+      alert('No CSV file selected or no data available to export.');
     }
   };
 
   const exportAllDataAsCSV = () => {
-    console.log('Export all data requested. CSV files available:', csvFiles.length);
-    console.log('WebSocket state:', wsRef.current?.readyState);
-    
-    // Check if connected to backend
     if (wsRef.current?.readyState === WebSocket.OPEN && csvFiles.length > 0) {
-      // Show custom confirmation popup
       setShowZipExportPopup(true);
-    } else if (fileData.length > 0) {
-      // Fallback: Export historical JSON data
-      const allData = fileData.flatMap(file =>
-        file.data.map(point => ({
-          ...point,
-          filename: file.filename
-        }))
-      );
-
-      const csvContent = [
-        'Timestamp,Acceleration,Filename',
-        ...allData.map(point => `${point.timestamp},${point.acceleration},${point.filename}`)
-      ].join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `all_sensor_data_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
     } else {
-      alert('No data available to export. Please ensure the backend is connected and data is being collected.');
+      alert('No CSV files available from backend. Connect and collect data first.');
     }
   };
   
@@ -699,10 +634,10 @@ const Dashboard: React.FC = () => {
   };
 
   const handleCalendarFileSelect = (filePath: string) => {
-    console.log('Selected file from calendar:', filePath);
-    // Add visual feedback for file selection
-    // TODO: Load actual CSV data and update charts
-    // Close calendar browser after selection
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ command: 'get_csv_data', filename: filePath }));
+      setSelectedCsvFile(filePath);
+    }
     setShowCalendarBrowser(false);
   };
 
@@ -851,7 +786,7 @@ const Dashboard: React.FC = () => {
             <div className="text-right">
               <h1 className="text-2xl font-bold">DASHBOARD</h1>
               <p className="text-sm opacity-90">
-                {csvFiles.length > 0 ? `CSV Files: ${csvFiles.length}` : `Total Files: ${fileData.length}`}
+                {`CSV Files: ${backendStatus?.csvFiles ?? csvFiles.length}`}
               </p>
             </div>
           </div>
@@ -922,7 +857,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* File List */}
+          {/* File List (backend only) */}
           <div className={`rounded-lg p-6 shadow-md transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className={`text-lg font-semibold flex items-center ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
@@ -961,25 +896,7 @@ const Dashboard: React.FC = () => {
                     </div>
                   </button>
                 ))
-              ) : (
-                fileData.map((file) => (
-                  <button
-                    key={file.filename}
-                    onClick={() => handleFileSelect(file.filename)}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${selectedFile === file.filename
-                      ? 'bg-[#019c7c] text-white'
-                      : isDarkMode
-                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      }`}
-                  >
-                    <div className="text-sm font-medium">{file.filename}</div>
-                    <div className={`text-xs ${selectedFile === file.filename ? 'text-white/70' : isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      JSON • Historical data
-                    </div>
-                  </button>
-                ))
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -999,9 +916,9 @@ const Dashboard: React.FC = () => {
                 <div className="space-y-2">
                   <button
                     onClick={exportSelectedFileAsCSV}
-                    disabled={!selectedFile && !selectedCsvFile}
+                    disabled={!selectedCsvFile}
                     className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between ${
-                      (selectedFile || selectedCsvFile)
+                      selectedCsvFile
                         ? isDarkMode
                           ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -1013,7 +930,6 @@ const Dashboard: React.FC = () => {
                     <span className="text-sm">
                       Export Selected File as CSV
                       {selectedCsvFile && <span className="text-xs block text-green-500">• {selectedCsvFile}</span>}
-                      {selectedFile && !selectedCsvFile && <span className="text-xs block text-blue-500">• {selectedFile}</span>}
                     </span>
                     <FileText className="h-4 w-4" />
                   </button>
@@ -1154,10 +1070,28 @@ const Dashboard: React.FC = () => {
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className={`h-[450px] flex flex-col items-center justify-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#019c7c] mb-4"></div>
-                  <p className="text-lg font-medium">Loading acceleration data...</p>
-                  <p className="text-sm opacity-75 mt-1">Preparing visualization</p>
+                <div className={`h-[450px] flex flex-col items-center justify-center ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  {isConnected ? (
+                    <div className={`px-6 py-5 rounded-2xl border backdrop-blur-sm ${isDarkMode ? 'bg-gray-800/60 border-gray-700 text-white' : 'bg-white/70 border-gray-200 text-gray-800'}`}>
+                      <div className="flex items-center space-x-3">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#019c7c]"></div>
+                        <div>
+                          <div className="text-base font-semibold">Loading acceleration data…</div>
+                          <div className="text-xs opacity-75 mt-0.5">Preparing visualization</div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`px-6 py-5 rounded-2xl border backdrop-blur-sm ${isDarkMode ? 'bg-gray-800/60 border-gray-700 text-white' : 'bg-white/70 border-gray-200 text-gray-800'}`}>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
+                        <div>
+                          <div className="text-base font-semibold">No backend connected</div>
+                          <div className="text-xs opacity-75 mt-0.5">Start the backend and refresh data</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1171,21 +1105,21 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Selected file chart */}
-          {(selectedFile || selectedCsvFile) && (
+          {/* Selected file chart (backend only) */}
+          {selectedCsvFile && (
             <div className={`rounded-lg p-6 shadow-md transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
               <div className="flex items-center justify-between mb-6">
                 <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                  File: {selectedCsvFile || selectedFile}
+                  File: {selectedCsvFile}
                 </h3>
                 <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Records: {selectedCsvFile ? selectedCsvData.length : selectedFileData.length}
+                  Records: {selectedCsvData.length}
                 </div>
               </div>
               <div ref={fileChartRef} className="relative">
                 <ResponsiveContainer width="100%" height={350}>
                   <LineChart
-                    data={(selectedCsvFile ? selectedCsvData : selectedFileData).slice(-50)} // Show last 50 points for better performance
+                    data={selectedCsvData.slice(-50)} // Show last 50 points for better performance
                     margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                   >
                     <defs>
@@ -1258,7 +1192,7 @@ const Dashboard: React.FC = () => {
                 <div className="absolute top-4 right-4">
                   <div className={`px-3 py-1 rounded-full text-xs font-medium ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
                     }`}>
-                    Latest {Math.min(50, selectedCsvFile ? selectedCsvData.length : selectedFileData.length)} points
+                    Latest {Math.min(50, selectedCsvData.length)} points
                   </div>
                 </div>
               </div>
@@ -1587,7 +1521,7 @@ const Dashboard: React.FC = () => {
                     : 'bg-gray-50/50 border-gray-200/50'
                   }
                 `}>
-                  <div className="text-2xl font-bold text-[#019c7c]">{csvFiles.length}</div>
+                  <div className="text-2xl font-bold text-[#019c7c]">{backendStatus?.csvFiles ?? csvFiles.length}</div>
                   <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>CSV Files</div>
                 </div>
                 
@@ -1598,7 +1532,7 @@ const Dashboard: React.FC = () => {
                     : 'bg-gray-50/50 border-gray-200/50'
                   }
                 `}>
-                  <div className="text-2xl font-bold text-[#019c7c]">{samplingRate}</div>
+                  <div className="text-2xl font-bold text-[#019c7c]">{backendStatus?.samplingRate ?? samplingRate}</div>
                   <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Hz Rate</div>
                 </div>
                 
@@ -1609,8 +1543,8 @@ const Dashboard: React.FC = () => {
                     : 'bg-gray-50/50 border-gray-200/50'
                   }
                 `}>
-                  <div className="text-2xl font-bold text-[#019c7c]">{liveData.length}</div>
-                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Live Points</div>
+                  <div className="text-2xl font-bold text-[#019c7c]">{backendStatus?.totalSamples ?? 0}</div>
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Samples</div>
                 </div>
                 
                 <div className={`
@@ -1621,7 +1555,7 @@ const Dashboard: React.FC = () => {
                   }
                 `}>
                   <div className="text-2xl font-bold text-[#019c7c]">
-                    {selectedCsvData.length || selectedFileData.length}
+                    {selectedCsvData.length}
                   </div>
                   <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Selected Data</div>
                 </div>
@@ -1645,7 +1579,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Selected File:</span>
-                    <span>{selectedCsvFile || selectedFile || 'None'}</span>
+                    <span>{selectedCsvFile || 'None'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Data Structure:</span>
