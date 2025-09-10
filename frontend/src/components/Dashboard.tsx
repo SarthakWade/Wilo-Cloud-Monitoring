@@ -1,12 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line
-} from 'recharts';
-import { FileText, BarChart3, Activity, Wifi, WifiOff, Sun, Moon, Download, Calendar, ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react';
+import { Activity, BarChart3, Calendar, ChevronDown, ChevronRight, Download, FileText, Folder, FolderOpen, Moon, Sun, Wifi, WifiOff } from 'lucide-react';
 import Image from 'next/image';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis, YAxis
+} from 'recharts';
 
 interface DataPoint {
   timestamp: string;
@@ -226,6 +232,75 @@ const Dashboard: React.FC = () => {
 
 
   // Setup WebSocket
+  const connectWebSocket = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      return; // Already connected
+    }
+
+    setWsStatus('connecting');
+
+    try {
+      // Get backend IP from environment variable or default to localhost
+      const backendHost = process.env.NEXT_PUBLIC_BACKEND_HOST || 'localhost';
+      const websocketUrl = `ws://${backendHost}:8765`;
+      
+      console.log(`Attempting to connect to backend at ${websocketUrl}`);
+      
+      const ws = new WebSocket(websocketUrl);
+
+      ws.onopen = () => {
+        console.log('WebSocket connected to', websocketUrl);
+        setWsStatus('connected');
+        setIsConnected(true);
+        wsRef.current = ws;
+
+        // Request initial status and file list
+        ws.send(JSON.stringify({ command: 'get_status' }));
+        ws.send(JSON.stringify({ command: 'get_file_list' }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleWebSocketMessage(data);
+        } catch (error) {
+          const info = describeEvent(error);
+          if (verboseLogs && info) console.debug('WS parse error:', info);
+        }
+      };
+
+      ws.onclose = (event) => {
+        const info = describeEvent(event);
+        console.log('WS closed:', info, 'state:', { url: ws.url, ts: new Date().toISOString() });
+        setWsStatus('disconnected');
+        setIsConnected(false);
+        wsRef.current = null;
+        
+        // Auto-retry connection after 3 seconds
+        setTimeout(() => {
+          if (wsRef.current === null) {
+            console.log('Attempting to reconnect WebSocket...');
+            connectWebSocket();
+          }
+        }, 3000);
+      };
+
+      ws.onerror = (error) => {
+        const info = describeEvent(error);
+        console.log('WS error:', info, 'state:', { readyState: ws.readyState, url: ws.url, ts: new Date().toISOString() });
+        setWsStatus('disconnected');
+        setIsConnected(false);
+        // Ensure we attempt reconnect if onclose is not triggered
+        // (disabled per user request)
+      };
+
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
+      setWsStatus('disconnected');
+      setIsConnected(false);
+    }
+  }, []);
+
   const handleWebSocketMessage = (data: WebSocketMessage) => {
     switch (data.type) {
       case 'status':
@@ -372,69 +447,6 @@ const Dashboard: React.FC = () => {
         console.log('Unknown WebSocket message type:', data.type);
     }
   };
-
-  const connectWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      return; // Already connected
-    }
-
-    setWsStatus('connecting');
-
-    try {
-      const ws = new WebSocket('ws://localhost:8765');
-
-      ws.onopen = () => {
-        if (verboseLogs) console.log('WebSocket connected');
-        setWsStatus('connected');
-        setIsConnected(true);
-        wsRef.current = ws;
-
-        // Request initial status and file list
-        ws.send(JSON.stringify({ command: 'get_status' }));
-        ws.send(JSON.stringify({ command: 'get_file_list' }));
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          handleWebSocketMessage(data);
-        } catch (error) {
-          const info = describeEvent(error);
-          if (verboseLogs && info) console.debug('WS parse error:', info);
-        }
-      };
-
-      ws.onclose = (event) => {
-        const info = describeEvent(event);
-        if (verboseLogs && info) console.debug('WS closed:', info, 'state:', { url: ws.url, ts: new Date().toISOString() });
-        setWsStatus('disconnected');
-        setIsConnected(false);
-        wsRef.current = null;
-        
-        // Auto-retry connection after 3 seconds
-        setTimeout(() => {
-          if (wsRef.current === null) {
-            console.log('Attempting to reconnect WebSocket...');
-            connectWebSocket();
-          }
-        }, 3000);
-      };
-
-      ws.onerror = (error) => {
-        const info = describeEvent(error);
-        if (verboseLogs && info) console.debug('WS error:', info, 'state:', { readyState: ws.readyState, url: ws.url, ts: new Date().toISOString() });
-        setWsStatus('disconnected');
-        setIsConnected(false);
-        // Ensure we attempt reconnect if onclose is not triggered
-        // (disabled per user request)
-      };
-
-    } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
-      setWsStatus('disconnected');
-      setIsConnected(false);
-    }
-  }, []);
 
   useEffect(() => {
     // Auto-connect to WebSocket on component mount

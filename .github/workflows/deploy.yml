@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages and Backend Server
 
 on:
   push:
@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  build-frontend:
     runs-on: ubuntu-latest
     
     steps:
@@ -33,7 +33,7 @@ jobs:
       with:
         bun-version: latest
         
-    - name: Install dependencies
+    - name: Install frontend dependencies
       run: |
         cd frontend
         bun install
@@ -49,13 +49,84 @@ jobs:
       with:
         path: ./frontend/dist
 
-  deploy:
+  deploy-frontend:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-frontend
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    needs: build-frontend
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Create backend deployment package
+      run: |
+        cd backend
+        # Create a deployment package with all necessary files
+        tar -czf ../backend-deployment.tar.gz *.py requirements.txt config.json README.md
+        
+    - name: Deploy to server
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: 172.168.4.70
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: 2121
+        source: "backend-deployment.tar.gz"
+        target: "/tmp/"
+        
+    - name: Extract and configure backend on server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: 172.168.4.70
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: 2121
+        script: |
+          # Create deployment directory if it doesn't exist
+          sudo mkdir -p /opt/wilo-backend
+          sudo chown $USER:$USER /opt/wilo-backend
+          
+          # Extract backend files
+          cd /opt/wilo-backend
+          tar -xzf /tmp/backend-deployment.tar.gz
+          rm /tmp/backend-deployment.tar.gz
+          
+          # Install Python dependencies
+          pip3 install -r requirements.txt
+          
+          # Create systemd service file for automatic startup
+          sudo tee /etc/systemd/system/wilo-backend.service > /dev/null <<EOF
+          [Unit]
+          Description=Wilo Cloud Monitoring Backend
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=$USER
+          WorkingDirectory=/opt/wilo-backend
+          ExecStart=/usr/bin/python3 main.py
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          
+          # Reload systemd and restart service
+          sudo systemctl daemon-reload
+          sudo systemctl restart wilo-backend.service
+          sudo systemctl enable wilo-backend.service
