@@ -819,9 +819,6 @@ const Dashboard: React.FC = () => {
             </button>
             <div className="text-right">
               <h1 className="text-2xl font-bold">DASHBOARD</h1>
-              <p className="text-sm opacity-90">
-                {`CSV Files: ${backendStatus?.csvFiles ?? csvFiles.length}`}
-              </p>
             </div>
           </div>
         </div>
@@ -830,66 +827,6 @@ const Dashboard: React.FC = () => {
       <div className="flex max-w-7xl mx-auto p-6 gap-6">
         {/* Sidebar */}
         <div className="w-80 space-y-6">
-          {/* System Status */}
-          <div className={`rounded-lg p-6 shadow-md transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <h2 className={`text-lg font-semibold mb-4 flex items-center ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-              <Activity className="h-5 w-5 mr-2 text-[#019c7c]" />
-              System Status
-            </h2>
-
-            {/* Connection Status */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Connection</span>
-                <button
-                  onClick={toggleConnection}
-                  disabled={wsStatus === 'connecting'}
-                  className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium transition-colors ${wsStatus === 'connected'
-                    ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                    : wsStatus === 'connecting'
-                      ? 'bg-yellow-100 text-yellow-800 cursor-not-allowed'
-                      : 'bg-red-100 text-red-800 hover:bg-red-200'
-                    }`}
-                >
-                  {wsStatus === 'connected' ? (
-                    <Wifi className="h-4 w-4" />
-                  ) : wsStatus === 'connecting' ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-800"></div>
-                  ) : (
-                    <WifiOff className="h-4 w-4" />
-                  )}
-                  <span>
-                    {wsStatus === 'connected' ? 'Connected' :
-                      wsStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-                  </span>
-                </button>
-              </div>
-              <div className="text-xs text-gray-500">
-                {wsStatus === 'connected' ? 'Real-time data streaming' :
-                  wsStatus === 'connecting' ? 'Establishing connection...' : 'Using historical data'}
-              </div>
-            </div>
-
-            {/* Data Statistics Button */}
-            <div>
-              <button
-                onClick={() => setShowStatsPopup(true)}
-                className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                  isDarkMode
-                    ? 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300'
-                    : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-700'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <BarChart3 className="h-4 w-4 text-[#019c7c]" />
-                  <span className="text-sm font-medium">View Data Statistics</span>
-                </div>
-                <div className="text-xs text-gray-500">
-                  {csvFiles.length} CSV files
-                </div>
-              </button>
-            </div>
-          </div>
 
           {/* File List (backend only) */}
           <div className={`rounded-lg p-6 shadow-md transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
@@ -968,21 +905,6 @@ const Dashboard: React.FC = () => {
                     <FileText className="h-4 w-4" />
                   </button>
 
-                  <button
-                    onClick={exportAllDataAsCSV}
-                    className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between ${isDarkMode
-                      ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      }`}
-                  >
-                    <span className="text-sm">
-                      {csvFiles.length > 0 ? 'Export All Data as ZIP' : 'Export All Data as CSV'}
-                      <span className="text-xs block text-orange-500">
-                        {csvFiles.length > 0 ? `• ${csvFiles.length} CSV files` : '• Historical data'}
-                      </span>
-                    </span>
-                    <FileText className="h-4 w-4" />
-                  </button>
                 </div>
               </div>
 
