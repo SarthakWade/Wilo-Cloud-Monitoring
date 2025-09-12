@@ -57,6 +57,22 @@ class HighSpeedSensorService:
         
         # Thread safety
         self.lock = threading.Lock()
+
+        # Rolling 2-hour window for single maximum reading export
+        # We avoid storing all 5,760,000 samples; instead we track running max
+        from datetime import datetime as _dt  # local alias
+        self.window_duration_sec = 2 * 60 * 60  # 2 hours
+        self.window_start = _dt.now()
+        self.max_value_in_window = float('-inf')
+        self.max_record_in_window = None  # {'timestamp': iso, 'acceleration': float}
+
+        # Outbox directory at repo root for auto-upload via sender_watch.py
+        # backend/ -> parents[1] is repo root
+        self.outbox_dir = Path(__file__).resolve().parents[1] / 'outbox'
+        try:
+            self.outbox_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
         
         print(f"High-Speed Sensor Service initialized")
         print(f"Sampling rate: {self.sampling_rate} Hz (every {self.sample_interval*1000:.3f}ms)")
@@ -403,6 +419,17 @@ class HighSpeedSensorService:
                 
                 with self.buffer_lock:
                     self.current_buffer.append(sample)
+
+                # Update rolling 2-hour maximum (use full-precision value for comparison)
+                try:
+                    if acceleration > self.max_value_in_window:
+                        self.max_value_in_window = acceleration
+                        self.max_record_in_window = {
+                            'timestamp': current_time.isoformat(),
+                            'acceleration': round(acceleration, 6)
+                        }
+                except Exception:
+                    pass
                 
                 # Counter updates
                 sample_count += 1
@@ -437,6 +464,19 @@ class HighSpeedSensorService:
                         achieved_hz = 1.0 / elapsed if elapsed > 0 else 0
                         print(f"Performance: {behind_ms:.1f}ms behind, achieving ~{achieved_hz:.0f} Hz")
                 
+                # Emit max CSV every 2 hours
+                try:
+                    from datetime import datetime as _dt
+                    if (current_time - self.window_start).total_seconds() >= self.window_duration_sec:
+                        self._emit_max_csv(window_start=self.window_start, window_end=current_time)
+                        # Reset window
+                        self.window_start = _dt.now()
+                        self.max_value_in_window = float('-inf')
+                        self.max_record_in_window = None
+                except Exception as _e:
+                    # Non-fatal; continue sampling
+                    pass
+                
             except Exception as e:
                 print(f"[{datetime_now().strftime('%H:%M:%S')}] Sensor error: {e}")
                 self.connected = False
@@ -448,6 +488,29 @@ class HighSpeedSensorService:
             self._save_current_buffer()
         
         print("Sensor loop ended")
+
+    def _emit_max_csv(self, window_start, window_end):
+        """Write a one-row CSV into outbox/ containing the highest acceleration observed in the 2-hour window."""
+        if not self.max_record_in_window:
+            return
+        try:
+            # Filename includes window start/end for traceability
+            start_str = window_start.strftime('%Y%m%d_%H%M%S')
+            end_str = window_end.strftime('%Y%m%d_%H%M%S')
+            filename = f"max_{start_str}_to_{end_str}.csv"
+            out_path = (self.outbox_dir / filename)
+
+            # Write CSV with header
+            import csv
+            out_tmp = out_path.with_suffix('.tmp')
+            with open(out_tmp, 'w', newline='') as f:
+                w = csv.writer(f)
+                w.writerow(['Timestamp', 'Acceleration'])
+                w.writerow([self.max_record_in_window['timestamp'], self.max_record_in_window['acceleration']])
+            out_tmp.replace(out_path)
+            print(f"[MAX] Emitted window max CSV: {out_path}")
+        except Exception as e:
+            print(f"Error writing max CSV: {e}")
     
     def get_file_list(self) -> list:
         """Get list of all CSV files in readings directory"""
