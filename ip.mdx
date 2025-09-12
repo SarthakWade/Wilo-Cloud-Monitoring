@@ -1,0 +1,65 @@
+
+
+
+
+
+
+
+
+
+
+
+
+Status: FTP server is up and listening on this machine at port 2121 with user “wilo”
+- Service: vsftpd
+- Listening: 0.0.0.0:2121
+- User: wilo
+- Password: 12345678
+- Home (chroot): /srv/ftp/wilo
+- Folders: /srv/ftp/wilo/uploads and /srv/ftp/wilo/downloads
+- Passive ports: 30020–30029
+- Conf: /etc/vsftpd.conf
+- Logs: /var/log/vsftpd.log; systemd unit vsftpd.service
+- Previous conflict: wilo-server.service was stopped, disabled, and masked so it won’t restart and occupy 2121
+
+What you can do now
+- From another machine, connect to this machine’s IP on port 2121:
+  lftp -u wilo,12345678 -p 2121 ftp://YOUR_MACHINE_IP
+- Upload to this server:
+  put a localfile.txt -O /uploads/
+- Download from this server:
+  get /downloads/somefile.txt -O .
+
+If a GUI client is preferred (e.g., FileZilla):
+- Host: YOUR_MACHINE_IP
+- Port: 2121
+- Protocol: FTP (plain)
+- User: wilo
+- Password: 12345678
+- Passive mode enabled
+
+Useful commands
+- Check service:
+  systemctl status vsftpd --no-pager
+- Verify listening:
+  ss -tulpen | awk 'NR==1 || /:(2121|3002[0-9])\b/'
+- Tail logs:
+  sudo tail -f /var/log/vsftpd.log
+- Change password:
+  echo "wilo:NEWPASS" | sudo chpasswd
+- Add another FTP user:
+  sudo adduser NEWUSER
+  echo "NEWUSER" | sudo tee -a /etc/vsftpd.userlist
+  sudo mkdir -p /srv/ftp/NEWUSER/{uploads,downloads}
+  sudo chown -R NEWUSER:NEWUSER /srv/ftp/NEWUSER
+  sudo usermod -d /srv/ftp/NEWUSER NEWUSER
+
+Notes
+- Firewall: I attempted to allow ports via UFW if present. If you have an upstream firewall or security group, allow TCP 2121 and 30020–30029 inbound to this host’s IP.
+- FTPS/TLS: If the sender requires FTPS, I can enable TLS with a certificate and adjust the config (explicit FTPS). Let me know and I’ll set that up.
+
+Files added to repo earlier (for your reference)
+- tcp_listener.py: raw TCP listener (not used now, because we installed a proper FTP server)
+- ftp_transfer.py: lftp-based client for when you need to pull/push files to a remote FTP server from this machine
+
+Do you want me to enable FTPS (TLS) or add any additional users/directories?

@@ -1,0 +1,23 @@
+# /etc/systemd/system/tcp-listener.service (template)
+# Copy this file to /etc/systemd/system/tcp-listener.service and adjust paths.
+
+[Unit]
+Description=Simple TCP Listener on port 2121
+After=network.target
+
+[Service]
+Type=simple
+# Adjust WorkingDirectory and ExecStart paths to your clone location
+WorkingDirectory=/home/vu-server/Wilo-Cloud-Monitoring
+ExecStart=/usr/bin/env python3 /home/vu-server/Wilo-Cloud-Monitoring/tcp_listener.py --host 0.0.0.0 --port 2121 --outdir /home/vu-server/Wilo-Cloud-Monitoring/received
+Restart=always
+RestartSec=2
+User=vu-server
+# Hardening options (optional)
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
