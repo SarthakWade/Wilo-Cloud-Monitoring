@@ -1,0 +1,30 @@
+# /etc/systemd/system/ftp-receiver.service (template)
+# Copy to /etc/systemd/system/ftp-receiver.service and adjust paths/arguments.
+
+[Unit]
+Description=FTP Receiver pulling from remote server with tqdm progress
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/vu-server/Wilo-Cloud-Monitoring
+# Adjust arguments as needed:
+ExecStart=/usr/bin/env python3 /home/vu-server/Wilo-Cloud-Monitoring/ftp_receiver.py \
+  --host 172.168.4.50 --port 2121 \
+  --user wilo --password 12345678 \
+  --remote-dir /uploads --local-dir /home/vu-server/Wilo-Cloud-Monitoring/received \
+  --interval 5
+Restart=always
+RestartSec=3
+User=vu-server
+# Environment=FTP_HOST=172.168.4.50 FTP_PORT=2121 FTP_USER=wilo FTP_PASS=12345678 FTP_REMOTE_DIR=/uploads FTP_LOCAL_DIR=/home/vu-server/Wilo-Cloud-Monitoring/received
+
+# Hardening (optional)
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
