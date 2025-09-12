@@ -7,6 +7,7 @@
   --card-border: rgba(0,0,0,0.1);
   --brand: #019578;
   --brand-hover: #017e67;
+  --nav-sep: rgba(255,255,255,0.6);
 }
 
 @theme inline {
@@ -24,6 +25,7 @@
     --card-border: rgba(255,255,255,0.1);
     --brand: #019578;
     --brand-hover: #017e67;
+    --nav-sep: rgba(255,255,255,0.4);
   }
 }
 
@@ -71,3 +73,6 @@ body {
 .bg-brand { background-color: var(--brand); }
 .hover\:bg-brand-hover:hover { background-color: var(--brand-hover); }
 .text-brand { color: var(--brand); }
+
+/* Navbar helpers */
+.bg-nav-sep { background-color: #efefef; }

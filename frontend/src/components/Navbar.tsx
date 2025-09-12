@@ -43,7 +43,8 @@ export default function Navbar() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           {/* Left: Logos */}
           <div className="flex items-center gap-3">
-            <Image src="/vu.png" width={28} height={28} alt="VU logo" className="rounded" />
+            <Image src="/vu.png" width={40} height={40} alt="VU logo" className="rounded" />
+            <span className="h-6 w-[2px] bg-nav-sep mx-1" aria-hidden />
             <Image src="/wilo.png" width={48} height={18} alt="Wilo logo" />
           </div>
 

@@ -48,7 +48,6 @@ export default function CsvVisualization() {
                   <option>Average</option>
                   <option>Min</option>
                 </select>
-                <button className="text-sm rounded-md border border-token px-3 py-1 hover:bg-foreground/10">Reset Zoom</button>
               </div>
             </div>
             <div className="p-6 h-[440px] flex items-center justify-center">
