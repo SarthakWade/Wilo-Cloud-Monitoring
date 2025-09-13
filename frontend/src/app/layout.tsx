@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Wilo Cloud Monitoring",
   description: "Dashboard for CSV visualization and monitoring",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({
