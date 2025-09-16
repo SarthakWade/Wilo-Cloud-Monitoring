@@ -100,20 +100,18 @@ def _sync_dir_recursive(sftp: paramiko.SFTPClient, remote_dir: str, local_dir: P
 
 
 def continuous_sync():
-    host = os.environ.get("RPI_HOST")
-    if not host:
-        raise SystemExit("RPI_HOST is required. Set RPI_HOST to your RPi's Twingate-reachable hostname/IP.")
-
+    # Hardcoded defaults (can be overridden by environment variables if set)
+    host = os.environ.get("RPI_HOST", "100.96.0.2")
     port = int(os.environ.get("RPI_PORT", "22"))
-    user = os.environ.get("RPI_USER", "pi")
-    remote_dir = os.environ.get("RPI_REMOTE_DIR", "/home/pi/data")
-    local_dir = Path(os.environ.get("LOCAL_DIR", "./received")).resolve()
+    user = os.environ.get("RPI_USER", "willo")
+    remote_dir = os.environ.get("RPI_REMOTE_DIR", "/home/willo/Desktop/Wilo-Cloud-Monitoring/data")
+    local_dir = Path(os.environ.get("LOCAL_DIR", "/home/vu-server/Wilo-Cloud-Monitoring/received")).resolve()
     suffix = os.environ.get("FILE_SUFFIX")  # e.g. ".csv"
     interval = int(os.environ.get("SYNC_INTERVAL_SEC", "10"))
 
     key_path = os.environ.get("SSH_KEY_PATH")
     key_passphrase = os.environ.get("SSH_KEY_PASSPHRASE")
-    password = os.environ.get("SSH_PASSWORD")
+    password = os.environ.get("SSH_PASSWORD", "12345678")
 
     print("--- RPi Continuous Sync ---")
     print(f"Host: {host}:{port} as {user}")
