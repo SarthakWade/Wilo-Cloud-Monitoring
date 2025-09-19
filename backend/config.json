@@ -1,0 +1,14 @@
+{
+    "sensor": {
+        "i2c_address": "0x68",
+        "sampling_rate": 800
+    },
+    "csv": {
+        "readings_directory": "readings",
+        "aggregate_filename": "aggregate_readings.csv",
+        "max_reading_filename": "max_reading.csv"
+    },
+    "processing": {
+        "aggregation_interval_hours": 2
+    }
+}

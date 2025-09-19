@@ -1,0 +1,27 @@
+[Unit]
+Description=Wilo Cloud Monitoring Backend
+After=network.target
+
+[Service]
+Type=simple
+User=willo
+WorkingDirectory=/home/willo/Desktop/Wilo-Cloud-Monitoring/backend
+ExecStart=/usr/bin/python3 /home/willo/Desktop/Wilo-Cloud-Monitoring/backend/main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target[Unit]
+Description=Wilo Cloud Monitoring Backend
+After=network.target
+
+[Service]
+Type=simple
+User=willo
+WorkingDirectory=/home/willo/Desktop/Wilo-Cloud-Monitoring/backend
+ExecStart=/usr/bin/python3 /home/willo/Desktop/Wilo-Cloud-Monitoring/backend/main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
