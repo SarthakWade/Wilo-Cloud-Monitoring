@@ -1,0 +1,6 @@
+2025-09-20 13:57:19,988 [INFO] File monitoring service started. Watching for new files.
+2025-09-20 13:58:19,997 [INFO] Received file: aggregate_readings.csv, Size: 1044480 bytes, Entries: 11880
+2025-09-20 13:58:34,998 [INFO] Received file: max_reading.csv, Size: 67 bytes, Entries: 1
+2025-09-20 14:00:10,906 [INFO] File monitoring service started. Watching for new files.
+2025-09-20 14:00:10,909 [INFO] File monitoring service started. Watching for new files.
+2025-09-20 14:05:26,212 [INFO] File monitoring service started. Watching for new files.
