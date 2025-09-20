@@ -134,8 +134,8 @@ class SensorReader:
                 writer.writerow(row)
     
     def _aggregate_data(self):
-        """Aggregate data from the last aggregation interval and find maximum reading."""
-        print("Starting data aggregation...")
+        """Find and copy the file with maximum reading for the last aggregation interval."""
+        print("Starting max reading file creation...")
         
         # For file-based aggregation, we'll look for the most recent N files
         # where N = aggregation_interval_seconds
@@ -155,10 +155,10 @@ class SensorReader:
         # Sort files by timestamp to ensure proper order
         csv_files.sort()
         
-        print(f"Found {len(csv_files)} files for aggregation")
+        print(f"Found {len(csv_files)} files for max reading analysis")
         
         if not csv_files:
-            print("No files to aggregate.")
+            print("No files to analyze.")
             return
         
         # Calculate time window for filename
@@ -209,8 +209,7 @@ class SensorReader:
             end_timestamp = now.strftime("%H:%M:%S")
             timestamp_suffix = f"{start_timestamp}_to_{end_timestamp}"
         
-        # Aggregate all data
-        all_data = []
+        # Find the file with maximum reading
         max_reading = None
         max_reading_file = None
         
@@ -219,8 +218,6 @@ class SensorReader:
                 with open(file_path, 'r') as csvfile:
                     reader = csv.DictReader(csvfile)
                     for row in reader:
-                        all_data.append(row)
-                        
                         # Check for maximum reading
                         total_accel = float(row['total'])
                         if max_reading is None or total_accel > max_reading:
@@ -228,16 +225,6 @@ class SensorReader:
                             max_reading_file = file_path
             except Exception as e:
                 print(f"Error reading file {file_path}: {e}")
-        
-        # Save aggregated data with timestamped filename
-        agg_filename = f"{self.aggregate_filename_prefix}{timestamp_suffix}.csv"
-        agg_file_path = Path(self.aggregate_output_dir) / agg_filename
-        with open(agg_file_path, 'w', newline='') as csvfile:
-            if all_data:
-                fieldnames = all_data[0].keys()
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(all_data)
         
         # Save maximum reading file as a copy of the source file with maximum reading
         max_filename = f"{self.max_reading_filename_prefix}{timestamp_suffix}.csv"
@@ -269,13 +256,12 @@ class SensorReader:
                 else:
                     writer.writerow(['No data', 'No data'])
         
-        print(f"Aggregated {len(all_data)} readings into {agg_file_path}")
         if max_reading is not None:
             print(f"Maximum reading: {max_reading} from {max_reading_file}")
         else:
             print("No maximum reading found")
         
-        print(f"Created files: {agg_filename} and {max_filename}")
+        print(f"Created max reading file: {max_filename}")
     
     def signal_handler(self, signum, frame):
         """Handle interrupt signals for graceful shutdown."""

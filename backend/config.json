@@ -10,6 +10,6 @@
         "max_reading_filename_prefix": "max_reading_"
     },
     "processing": {
-        "aggregation_interval_seconds": 10
+        "aggregation_interval_seconds": 60
     }
 }
