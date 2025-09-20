@@ -1,28 +1,42 @@
 #!/usr/bin/env python3
 """
-High-speed MPU6050 sensor reading script optimized for 800-850 Hz sampling rate.
-This script uses direct I2C register access and other optimizations to achieve
-maximum sampling rate from the MPU6050 sensor.
+Simple sensor reading script that collects data at 800 Hz and saves to CSV files.
+Every second, a new CSV file is created.
+Periodically aggregates data and finds maximum value.
 """
 
 import time
 import math
 import signal
-import sys
-from datetime import datetime
+import json
+import csv
+import os
+from datetime import datetime, timedelta
+from pathlib import Path
 from collections import deque
 
 from mpu6050 import mpu6050
 
-class HighSpeedSensorReader:
-    def __init__(self, target_rate=800):
-        self.target_rate = target_rate
-        self.target_interval = 1.0 / target_rate if target_rate > 0 else 0
+class SensorReader:
+    def __init__(self):
         self.running = True
         self.sample_count = 0
         self.start_time = time.perf_counter()
-        self.last_print_time = time.perf_counter()
-        self.samples_buffer = deque(maxlen=1000)  # Buffer for performance monitoring
+        self.current_buffer = deque()
+        
+        # Load configuration
+        self.config = self._load_config()
+        self.sampling_rate = 800  # Hardcoded as requested
+        self.sample_interval = 1.0 / self.sampling_rate
+        self.readings_dir = self.config["csv"]["readings_directory"]
+        self.aggregate_output_dir = self.config["csv"]["aggregate_output_directory"]
+        self.aggregate_filename_prefix = self.config["csv"]["aggregate_filename_prefix"]
+        self.max_reading_filename_prefix = self.config["csv"]["max_reading_filename_prefix"]
+        self.aggregation_interval_seconds = self.config["processing"]["aggregation_interval_seconds"]
+        
+        # Create directories if they don't exist
+        Path(self.readings_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.aggregate_output_dir).mkdir(parents=True, exist_ok=True)
         
         # Register signal handler for graceful shutdown
         signal.signal(signal.SIGINT, self.signal_handler)
@@ -32,40 +46,29 @@ class HighSpeedSensorReader:
         self.sensor = None
         self._connect_sensor()
         
-        # Configure sensor for high-speed operation
-        self._configure_sensor()
+        # Tracking for aggregation
+        self.last_aggregation = 0
+        self.files_since_last_aggregation = 0  # Track number of files saved since last aggregation
+        
+    def _load_config(self):
+        """Load configuration from JSON file."""
+        with open('config.json', 'r') as f:
+            return json.load(f)
     
     def _connect_sensor(self):
         """Connect to the MPU6050 sensor."""
         try:
-            self.sensor = mpu6050(0x68)
-            print("Connected to MPU6050 sensor at address 0x68")
+            i2c_address = int(self.config["sensor"]["i2c_address"], 16)
+            self.sensor = mpu6050(i2c_address)
+            print(f"Connected to MPU6050 sensor at address 0x{self.config['sensor']['i2c_address']}")
         except Exception as e:
             print(f"Failed to connect to sensor: {e}")
             raise
     
-    def _configure_sensor(self):
-        """Configure the MPU6050 for maximum sampling rate."""
-        try:
-            # Set accelerometer range to 2G for higher sensitivity
-            self.sensor.set_accel_range(self.sensor.ACCEL_RANGE_2G)
-            
-            # Set gyroscope range to 250 deg/s for higher sensitivity
-            self.sensor.set_gyro_range(self.sensor.GYRO_RANGE_250DEG)
-            
-            # Set digital low-pass filter to maximum bandwidth (256 Hz)
-            self.sensor.set_filter_range(self.sensor.FILTER_BW_256)
-            
-            print("Sensor configured for high-speed operation")
-        except Exception as e:
-            print(f"Warning: Could not configure sensor: {e}")
-            print("Using default sensor configuration")
-    
-    def _get_sensor_data_optimized(self):
-        """Get acceleration data using optimized direct register access."""
+    def _get_sensor_data(self):
+        """Get acceleration data from sensor using optimized direct access."""
         try:
             # Direct I2C register access for faster reading
-            # Read 6 bytes of accelerometer data starting from ACCEL_XOUT0
             raw_data = self.sensor.bus.read_i2c_block_data(
                 self.sensor.address, 
                 self.sensor.ACCEL_XOUT0, 
@@ -103,88 +106,261 @@ class HighSpeedSensorReader:
             print(f"Error reading sensor: {e}")
             raise
     
+    def _get_current_filename(self):
+        """Generate filename based on current timestamp."""
+        now = datetime.now()
+        # Create directory structure: readings/YYYY/MM/DD/HH/
+        dir_path = Path(self.readings_dir) / now.strftime("%Y/%m/%d/%H")
+        dir_path.mkdir(parents=True, exist_ok=True)
+        
+        # Filename format: MMSS.csv (minute and second)
+        filename = now.strftime("%M%S.csv")
+        return str(dir_path / filename)
+    
+    def _save_buffer_to_csv(self, filename, buffer):
+        """Save buffer data to CSV file."""
+        file_exists = os.path.exists(filename)
+        
+        with open(filename, 'a', newline='') as csvfile:
+            fieldnames = ['timestamp', 'x', 'y', 'z', 'total']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            
+            # Write header if file is new
+            if not file_exists:
+                writer.writeheader()
+            
+            # Write data rows
+            for row in buffer:
+                writer.writerow(row)
+    
+    def _aggregate_data(self):
+        """Aggregate data from the last aggregation interval and find maximum reading."""
+        print("Starting data aggregation...")
+        
+        # For file-based aggregation, we'll look for the most recent N files
+        # where N = aggregation_interval_seconds
+        all_csv_files = []
+        for root, dirs, files in os.walk(self.readings_dir):
+            for file in files:
+                if file.endswith('.csv'):
+                    file_path = os.path.join(root, file)
+                    all_csv_files.append(file_path)
+        
+        # Sort files by modification time (newest first)
+        all_csv_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        
+        # Take the most recent N files (where N = aggregation_interval_seconds)
+        csv_files = all_csv_files[:self.aggregation_interval_seconds]
+        
+        # Sort files by timestamp to ensure proper order
+        csv_files.sort()
+        
+        print(f"Found {len(csv_files)} files for aggregation")
+        
+        if not csv_files:
+            print("No files to aggregate.")
+            return
+        
+        # Calculate time window for filename
+        # Get timestamps from the first and last files
+        first_file = csv_files[0]
+        last_file = csv_files[-1]
+        
+        # Extract timestamps from file paths
+        try:
+            # Parse first file timestamp
+            first_path_parts = first_file.split(os.sep)
+            first_hour = first_path_parts[-2]
+            first_minute_second = first_path_parts[-1].replace('.csv', '')
+            first_minute = first_minute_second[:2]
+            first_second = first_minute_second[2:4]
+            
+            # Parse last file timestamp
+            last_path_parts = last_file.split(os.sep)
+            last_hour = last_path_parts[-2]
+            last_minute_second = last_path_parts[-1].replace('.csv', '')
+            last_minute = last_minute_second[:2]
+            last_second = last_minute_second[2:4]
+            
+            # Create datetime objects
+            first_time = datetime.now().replace(
+                hour=int(first_hour), 
+                minute=int(first_minute), 
+                second=int(first_second), 
+                microsecond=0
+            )
+            last_time = datetime.now().replace(
+                hour=int(last_hour), 
+                minute=int(last_minute), 
+                second=int(last_second), 
+                microsecond=0
+            )
+            
+            # Generate timestamped filenames
+            start_timestamp = first_time.strftime("%H:%M:%S")
+            end_timestamp = last_time.strftime("%H:%M:%S")
+            timestamp_suffix = f"{start_timestamp}_to_{end_timestamp}"
+        except Exception as e:
+            print(f"Error parsing timestamps: {e}")
+            # Fallback to current time
+            now = datetime.now()
+            start_time = now - timedelta(seconds=self.aggregation_interval_seconds)
+            start_timestamp = start_time.strftime("%H:%M:%S")
+            end_timestamp = now.strftime("%H:%M:%S")
+            timestamp_suffix = f"{start_timestamp}_to_{end_timestamp}"
+        
+        # Aggregate all data
+        all_data = []
+        max_reading = None
+        max_reading_file = None
+        
+        for file_path in csv_files:
+            try:
+                with open(file_path, 'r') as csvfile:
+                    reader = csv.DictReader(csvfile)
+                    for row in reader:
+                        all_data.append(row)
+                        
+                        # Check for maximum reading
+                        total_accel = float(row['total'])
+                        if max_reading is None or total_accel > max_reading:
+                            max_reading = total_accel
+                            max_reading_file = file_path
+            except Exception as e:
+                print(f"Error reading file {file_path}: {e}")
+        
+        # Save aggregated data with timestamped filename
+        agg_filename = f"{self.aggregate_filename_prefix}{timestamp_suffix}.csv"
+        agg_file_path = Path(self.aggregate_output_dir) / agg_filename
+        with open(agg_file_path, 'w', newline='') as csvfile:
+            if all_data:
+                fieldnames = all_data[0].keys()
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(all_data)
+        
+        # Save maximum reading file as a copy of the source file with maximum reading
+        max_filename = f"{self.max_reading_filename_prefix}{timestamp_suffix}.csv"
+        max_file_path = Path(self.aggregate_output_dir) / max_filename
+        
+        if max_reading_file:
+            # Copy the entire contents of the source file that had the maximum reading
+            try:
+                import shutil
+                shutil.copy2(max_reading_file, max_file_path)
+                print(f"Copied maximum reading file: {max_reading_file} to {max_file_path}")
+            except Exception as e:
+                print(f"Error copying maximum reading file: {e}")
+                # Fallback to old method if copy fails
+                with open(max_file_path, 'w', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(['max_acceleration', 'source_file'])
+                    if max_reading is not None:
+                        writer.writerow([max_reading, max_reading_file])
+                    else:
+                        writer.writerow(['No data', 'No data'])
+        else:
+            # Fallback to old method if no max reading file found
+            with open(max_file_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(['max_acceleration', 'source_file'])
+                if max_reading is not None:
+                    writer.writerow([max_reading, max_reading_file])
+                else:
+                    writer.writerow(['No data', 'No data'])
+        
+        print(f"Aggregated {len(all_data)} readings into {agg_file_path}")
+        if max_reading is not None:
+            print(f"Maximum reading: {max_reading} from {max_reading_file}")
+        else:
+            print("No maximum reading found")
+        
+        print(f"Created files: {agg_filename} and {max_filename}")
+    
     def signal_handler(self, signum, frame):
         """Handle interrupt signals for graceful shutdown."""
         print("\nReceived interrupt signal. Stopping...")
         self.running = False
     
-    def print_stats(self):
-        """Print sampling rate statistics."""
-        current_time = time.perf_counter()
-        elapsed = current_time - self.start_time
-        samples_per_second = self.sample_count / elapsed if elapsed > 0 else 0
-        
-        # Calculate recent performance
-        if len(self.samples_buffer) > 1:
-            recent_elapsed = self.samples_buffer[-1][0] - self.samples_buffer[0][0]
-            recent_samples = len(self.samples_buffer)
-            recent_rate = recent_samples / recent_elapsed if recent_elapsed > 0 else 0
-        else:
-            recent_rate = samples_per_second
-        
-        print(f"Samples: {self.sample_count}, Elapsed: {elapsed:.2f}s, "
-              f"Overall Rate: {samples_per_second:.1f} Hz, "
-              f"Recent Rate: {recent_rate:.1f} Hz")
-    
     def run(self):
-        """Main high-speed loop to read and print sensor data."""
-        print(f"Starting high-speed sensor reading at {self.target_rate} Hz... Press Ctrl+C to stop.")
-        print("Timestamp              | X       | Y       | Z       | Total   | Rate (Hz)")
-        print("-" * 75)
+        """Main loop to read and save sensor data."""
+        print(f"Starting sensor data collection at {self.sampling_rate} Hz")
+        print(f"Saving to directory: {self.readings_dir}")
+        print(f"Aggregation interval: {self.aggregation_interval_seconds} seconds")
+        print("Press Ctrl+C to stop.")
+        
+        current_filename = self._get_current_filename()
+        samples_count = 0
+        second_start = time.perf_counter()
         
         try:
             while self.running:
                 loop_start = time.perf_counter()
                 
-                # Get sensor data using optimized method
-                data = self._get_sensor_data_optimized()
-                self.sample_count += 1
+                # Get sensor data
+                accel_data = self._get_sensor_data()
                 
-                # Store timing data for performance monitoring
-                current_time = time.perf_counter()
-                self.samples_buffer.append((current_time, data))
+                # Add timestamp
+                timestamp = datetime.now().isoformat()
+                data_row = {
+                    'timestamp': timestamp,
+                    **accel_data
+                }
                 
-                # Print data every 400 samples to avoid flooding terminal
-                if self.sample_count % 400 == 0:
-                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-                    elapsed = current_time - self.start_time
-                    rate = self.sample_count / elapsed if elapsed > 0 else 0
+                # Add to current buffer
+                self.current_buffer.append(data_row)
+                samples_count += 1
+                
+                # Check if we need to save the buffer (every second)
+                if samples_count >= self.sampling_rate:
+                    # Save current buffer to file
+                    buffer_copy = list(self.current_buffer)
+                    self.current_buffer.clear()
                     
-                    print(f"{timestamp} | {data['x']:7.3f} | {data['y']:7.3f} | "
-                          f"{data['z']:7.3f} | {data['total']:7.3f} | {rate:7.1f}")
-                
-                # Print statistics every 3 seconds
-                if current_time - self.last_print_time >= 3.0:
-                    self.print_stats()
-                    self.last_print_time = current_time
-                
-                # Maintain target sampling rate with precise timing
-                if self.target_interval > 0:
-                    loop_end = time.perf_counter()
-                    elapsed = loop_end - loop_start
-                    sleep_time = self.target_interval - elapsed
+                    self._save_buffer_to_csv(current_filename, buffer_copy)
+                    print(f"Saved {len(buffer_copy)} samples to {current_filename}")
                     
-                    # Only sleep if we have time to spare
+                    # Increment file counter for aggregation
+                    self.files_since_last_aggregation += 1
+                    
+                    # Update for next second
+                    current_filename = self._get_current_filename()
+                    samples_count = 0
+                    second_start = time.perf_counter()
+                    
+                    # Check if it's time for aggregation (every 10 files)
+                    if self.files_since_last_aggregation >= self.aggregation_interval_seconds:
+                        self._aggregate_data()
+                        self.files_since_last_aggregation = 0
+                        self.last_aggregation = time.time()
+                
+                # Maintain precise timing
+                loop_end = time.perf_counter()
+                elapsed = loop_end - loop_start
+                sleep_time = self.sample_interval - elapsed
+                
+                if sleep_time > 0:
                     if sleep_time > 0.0001:  # 100 microseconds
                         time.sleep(sleep_time)
-                    # If sleep_time is negative, we're behind schedule - continue without delay
-        
+                    else:
+                        # Busy wait for high precision
+                        target_time = loop_start + self.sample_interval
+                        while time.perf_counter() < target_time:
+                            pass
+                
         except Exception as e:
             print(f"Error during execution: {e}")
             import traceback
             traceback.print_exc()
         finally:
             print("\nSensor reading stopped.")
-            self.print_stats()
+            # Save any remaining data
+            if len(self.current_buffer) > 0:
+                buffer_copy = list(self.current_buffer)
+                self.current_buffer.clear()
+                self._save_buffer_to_csv(current_filename, buffer_copy)
+                print(f"Saved final {len(buffer_copy)} samples to {current_filename}")
 
 if __name__ == "__main__":
-    # Parse command line arguments for target sampling rate
-    target_rate = 800
-    if len(sys.argv) > 1:
-        try:
-            target_rate = int(sys.argv[1])
-        except ValueError:
-            print("Invalid sampling rate. Using default 800 Hz.")
-    
-    reader = HighSpeedSensorReader(target_rate=target_rate)
+    reader = SensorReader()
     reader.run()

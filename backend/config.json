@@ -5,10 +5,11 @@
     },
     "csv": {
         "readings_directory": "readings",
-        "aggregate_filename": "aggregate_readings.csv",
-        "max_reading_filename": "max_reading.csv"
+        "aggregate_output_directory": "../data",
+        "aggregate_filename_prefix": "aggregate_",
+        "max_reading_filename_prefix": "max_reading_"
     },
     "processing": {
-        "aggregation_interval_hours": 2
+        "aggregation_interval_seconds": 10
     }
 }
