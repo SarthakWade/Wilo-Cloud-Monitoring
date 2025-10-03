@@ -5,7 +5,7 @@
     },
     "csv": {
         "readings_directory": "readings",
-        "aggregate_output_directory": "../data",
+        "aggregate_output_directory": "/home/willo/Desktop/Wilo-Cloud-Monitoring/data",
         "aggregate_filename_prefix": "aggregate_",
         "max_reading_filename_prefix": "max_reading_"
     },
