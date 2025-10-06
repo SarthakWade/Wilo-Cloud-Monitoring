@@ -33,6 +33,7 @@ class SensorReader:
         self.aggregate_filename_prefix = self.config["csv"]["aggregate_filename_prefix"]
         self.max_reading_filename_prefix = self.config["csv"]["max_reading_filename_prefix"]
         self.aggregation_interval_seconds = self.config["processing"]["aggregation_interval_seconds"]
+        self.cleanup_interval_hours = 3  # Delete files older than 3 hours
         
         # Create directories if they don't exist
         Path(self.readings_dir).mkdir(parents=True, exist_ok=True)
@@ -263,6 +264,38 @@ class SensorReader:
         
         print(f"Created max reading file: {max_filename}")
     
+    def _cleanup_old_files(self):
+        """Delete reading files that are older than 3 hours."""
+        print("Starting cleanup of old reading files...")
+        cutoff_time = datetime.now() - timedelta(hours=self.cleanup_interval_hours)
+        deleted_count = 0
+
+        for root, dirs, files in os.walk(self.readings_dir):
+            for file in files:
+                if file.endswith('.csv'):
+                    file_path = os.path.join(root, file)
+                    file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
+                    
+                    if file_mtime < cutoff_time:
+                        try:
+                            os.remove(file_path)
+                            deleted_count += 1
+                        except Exception as e:
+                            print(f"Error deleting file {file_path}: {e}")
+        
+        if deleted_count > 0:
+            print(f"Deleted {deleted_count} files older than {self.cleanup_interval_hours} hours")
+            
+        # Clean up empty directories
+        for root, dirs, files in os.walk(self.readings_dir, topdown=False):
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                try:
+                    if not os.listdir(dir_path):  # if directory is empty
+                        os.rmdir(dir_path)
+                except Exception as e:
+                    print(f"Error removing empty directory {dir_path}: {e}")
+
     def signal_handler(self, signum, frame):
         """Handle interrupt signals for graceful shutdown."""
         print("\nReceived interrupt signal. Stopping...")
@@ -317,6 +350,7 @@ class SensorReader:
                     # Check if it's time for aggregation (every 10 files)
                     if self.files_since_last_aggregation >= self.aggregation_interval_seconds:
                         self._aggregate_data()
+                        self._cleanup_old_files()  # Run cleanup after aggregation
                         self.files_since_last_aggregation = 0
                         self.last_aggregation = time.time()
                 
