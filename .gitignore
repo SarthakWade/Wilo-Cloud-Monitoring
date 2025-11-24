@@ -1,1 +1,30 @@
-Data
+# Data and Environment
+Data/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Frontend build
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.production
