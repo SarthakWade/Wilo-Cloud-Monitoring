@@ -741,7 +741,7 @@ function App() {
 
           {/* Right: VU Logo */}
           <div className="flex-shrink-0 w-48 flex justify-end">
-            <img src="/vu.png" alt="VU Logo" className="h-20 object-contain" />
+            <img src="/vu.png" alt="VU Logo" className="h-12 object-contain" />
           </div>
         </div>
         
@@ -1105,16 +1105,6 @@ function App() {
             </div>
           </div>
         )}
-        
-        {/* Info Alert */}
-        <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <h5 className="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-2">
-            🎯 Three Independent Charts
-          </h5>
-          <p className="text-blue-700 dark:text-blue-300 text-sm">
-            Each chart can display a different parameter simultaneously, allowing easy comparison of multiple statistical measures over time.
-          </p>
-        </div>
       </div>
     </div>
   );
