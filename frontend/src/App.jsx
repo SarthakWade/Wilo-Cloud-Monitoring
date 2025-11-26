@@ -62,36 +62,204 @@ const DISTRIBUTION_OPTIONS = [
   { value: 'percentile_99', label: '99th Percentile' }
 ];
 
+const OPTION_COLORS = [
+  '#EF4444', // red-500
+  '#F97316', // orange-500
+  '#F59E0B', // amber-500
+  '#84CC16', // lime-500
+  '#10B981', // emerald-500
+  '#06B6D4', // cyan-500
+  '#3B82F6', // blue-500
+  '#6366F1', // indigo-500
+  '#8B5CF6', // violet-500
+  '#EC4899', // pink-500
+];
+
 // Chart colors for different themes
 const getChartColors = (theme, chartIndex) => {
   const isDark = theme === 'dark';
   const colors = [
-    { 
-      border: isDark ? 'rgb(99, 102, 241)' : 'rgb(59, 130, 246)', 
-      bg: isDark ? 'rgba(99, 102, 241, 0.1)' : 'rgba(59, 130, 246, 0.1)' 
+    {
+      border: isDark ? 'rgb(99, 102, 241)' : 'rgb(59, 130, 246)',
+      bg: isDark ? 'rgba(99, 102, 241, 0.1)' : 'rgba(59, 130, 246, 0.1)'
     },
-    { 
-      border: isDark ? 'rgb(16, 185, 129)' : 'rgb(34, 197, 94)', 
-      bg: isDark ? 'rgba(16, 185, 129, 0.1)' : 'rgba(34, 197, 94, 0.1)' 
+    {
+      border: isDark ? 'rgb(16, 185, 129)' : 'rgb(34, 197, 94)',
+      bg: isDark ? 'rgba(16, 185, 129, 0.1)' : 'rgba(34, 197, 94, 0.1)'
     },
-    { 
-      border: isDark ? 'rgb(245, 158, 11)' : 'rgb(251, 191, 36)', 
-      bg: isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(251, 191, 36, 0.1)' 
+    {
+      border: isDark ? 'rgb(245, 158, 11)' : 'rgb(251, 191, 36)',
+      bg: isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(251, 191, 36, 0.1)'
     }
   ];
   return colors[chartIndex % colors.length];
 };
 
+// Modal component for expanded graph view
+const GraphModal = ({ isOpen, onClose, chartData, parameter, title, theme, options, onParameterChange }) => {
+  const colors = getChartColors(theme, 0);
+  const isDark = theme === 'dark';
+
+  if (!isOpen) return null;
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+        labels: {
+          color: isDark ? '#e6e6e6' : '#212529',
+          font: { size: 14 }
+        }
+      },
+      tooltip: {
+        backgroundColor: isDark ? 'rgba(21, 25, 34, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+        titleColor: isDark ? '#e6e6e6' : '#212529',
+        bodyColor: isDark ? '#e6e6e6' : '#212529',
+        borderColor: isDark ? '#2a2f3a' : '#dee2e6',
+        borderWidth: 1,
+        padding: 12,
+        displayColors: true,
+        callbacks: {
+          title: function (context) {
+            return 'Time: ' + context[0].label;
+          },
+          label: function (context) {
+            return context.dataset.label + ': ' + context.parsed.y.toFixed(4);
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: 'Timestamp',
+          color: isDark ? '#e6e6e6' : '#212529',
+          font: { size: 14 }
+        },
+        ticks: {
+          color: isDark ? '#a0a0a0' : '#6c757d',
+          maxTicksLimit: 10,
+          font: { size: 12 }
+        },
+        grid: {
+          color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
+        }
+      },
+      y: {
+        display: true,
+        title: {
+          display: true,
+          text: chartData?.datasets?.[0]?.label || 'Value',
+          color: isDark ? '#e6e6e6' : '#212529',
+          font: { size: 14 }
+        },
+        ticks: {
+          color: isDark ? '#a0a0a0' : '#6c757d',
+          font: { size: 12 }
+        },
+        grid: {
+          color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
+        }
+      }
+    }
+  };
+
+  const data = chartData ? {
+    ...chartData,
+    datasets: chartData.datasets.map(dataset => ({
+      ...dataset,
+      borderColor: colors.border,
+      backgroundColor: colors.bg,
+      pointBackgroundColor: colors.border
+    }))
+  } : {
+    labels: [],
+    datasets: [{
+      label: 'Loading...',
+      data: [],
+      borderColor: colors.border,
+      backgroundColor: colors.bg
+    }]
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-11/12 h-5/6 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 group"
+          aria-label="Close modal"
+        >
+          <svg
+            className="w-6 h-6 text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* Modal Content */}
+        <div className="h-full flex flex-col">
+          <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">{title}</h3>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Parameter
+            </label>
+            <select
+              className="w-64 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 font-medium"
+              style={{ color: OPTION_COLORS[options.findIndex(o => o.value === parameter) % OPTION_COLORS.length] || 'inherit' }}
+              value={parameter}
+              onChange={(e) => onParameterChange(e.target.value)}
+            >
+              {options.map((option, idx) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                  style={{ color: OPTION_COLORS[idx % OPTION_COLORS.length] }}
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1 min-h-0">
+            <Line data={data} options={chartOptions} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Chart component
-const ParameterChart = ({ 
-  chartData, 
-  parameter, 
-  chartIndex, 
-  theme, 
-  meta, 
-  onParameterChange, 
-  options, 
-  title 
+const ParameterChart = ({
+  chartData,
+  parameter,
+  chartIndex,
+  theme,
+  meta,
+  onParameterChange,
+  options,
+  title,
+  onExpand
 }) => {
   const colors = getChartColors(theme, chartIndex);
   const isDark = theme === 'dark';
@@ -121,10 +289,10 @@ const ParameterChart = ({
         padding: 8,
         displayColors: true,
         callbacks: {
-          title: function(context) {
+          title: function (context) {
             return 'Time: ' + context[0].label;
           },
-          label: function(context) {
+          label: function (context) {
             return context.dataset.label + ': ' + context.parsed.y.toFixed(4);
           }
         }
@@ -188,12 +356,24 @@ const ParameterChart = ({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-opacity-60 dark:bg-opacity-60">
       <div className="p-6">
-        <h5 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">{title}</h5>
+        <div className="flex items-center justify-between mb-3">
+          <h5 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h5>
+          <button
+            onClick={onExpand}
+            className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center gap-2"
+            aria-label="Expand graph"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+            Expand
+          </button>
+        </div>
         <div className="mb-3">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Parameter
           </label>
-          <select 
+          <select
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             value={parameter}
             onChange={(e) => onParameterChange(e.target.value)}
@@ -206,7 +386,13 @@ const ParameterChart = ({
           </select>
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">{meta}</div>
-        <div className="h-80">
+        <div
+          className="h-80 cursor-pointer hover:opacity-80 transition-opacity duration-200"
+          onClick={onExpand}
+          role="button"
+          tabIndex={0}
+          onKeyPress={(e) => e.key === 'Enter' && onExpand()}
+        >
           <Line data={data} options={chartOptions} />
         </div>
       </div>
@@ -219,16 +405,14 @@ function App() {
   const [files, setFiles] = useState([]);
   const [lastFile, setLastFile] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
-  const [maxViolations, setMaxViolations] = useState(0);
-  const [minViolations, setMinViolations] = useState(0);
   const [nextExpected, setNextExpected] = useState('Next expected in: —');
   const [latestActivity, setLatestActivity] = useState('No recent activity');
-  const [systemStatus, setSystemStatus] = useState({ 
-    text: 'Initializing…', 
-    detail: 'Checking connectivity and schedule…', 
-    status: 'warn' 
+  const [systemStatus, setSystemStatus] = useState({
+    text: 'Initializing…',
+    detail: 'Checking connectivity and schedule…',
+    status: 'warn'
   });
-  
+
   // Three chart states
   const [chart1Parameter, setChart1Parameter] = useState('raw_z');
   const [chart2Parameter, setChart2Parameter] = useState('crest_factor');
@@ -239,9 +423,51 @@ function App() {
   const [chart1Meta, setChart1Meta] = useState('Loading chart data...');
   const [chart2Meta, setChart2Meta] = useState('Loading chart data...');
   const [chart3Meta, setChart3Meta] = useState('Loading chart data...');
-  
+
+  // FFT Graph state
+  const [fftData, setFftData] = useState(null);
+  const [fftMeta, setFftMeta] = useState('Loading FFT data...');
+
+  // Event modal state
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [eventTime, setEventTime] = useState('');
+  const [eventName, setEventName] = useState('');
+  const [selectedExistingEvent, setSelectedExistingEvent] = useState('');
+  const [eventHistory, setEventHistory] = useState([]);
+
+  // Modal state
+  const [expandedChartIndex, setExpandedChartIndex] = useState(null);
+
   const socketRef = useRef(null);
   const countdownTimerRef = useRef(null);
+
+  // Configuration for the three charts to map index to state
+  const chartsConfig = [
+    {
+      data: chart1Data,
+      parameter: chart1Parameter,
+      setParameter: setChart1Parameter,
+      meta: chart1Meta,
+      options: BASIC_STATS_OPTIONS,
+      title: "Basic Amplitude Statistics"
+    },
+    {
+      data: chart2Data,
+      parameter: chart2Parameter,
+      setParameter: setChart2Parameter,
+      meta: chart2Meta,
+      options: HEALTH_RATIOS_OPTIONS,
+      title: "Severity / Health Ratios"
+    },
+    {
+      data: chart3Data,
+      parameter: chart3Parameter,
+      setParameter: setChart3Parameter,
+      meta: chart3Meta,
+      options: DISTRIBUTION_OPTIONS,
+      title: "Distribution & Extras"
+    }
+  ];
 
   // Theme initialization
   useEffect(() => {
@@ -264,21 +490,70 @@ function App() {
     localStorage.setItem('theme', next);
   };
 
+  // Load FFT data
+  const loadFftData = async () => {
+    setFftMeta('Loading FFT data...');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/parameter-data/raw_z`);
+      const data = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Calculate slopes for each point
+      const slopes = [];
+      const values = data.parameter_values || data.z_values || [];
+
+      for (let i = 0; i < values.length; i++) {
+        if (i === 0) {
+          slopes.push(0); // First point has no slope
+        } else {
+          const deltaY = values[i] - values[i - 1];
+          const deltaX = 1; // Assuming uniform time intervals
+          slopes.push(deltaY / deltaX);
+        }
+      }
+
+      const chartData = {
+        labels: data.timestamps,
+        datasets: [{
+          label: 'Amplitude (FFT)',
+          data: values,
+          slopes: slopes, // Store slopes for tooltip
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 2,
+          pointHoverRadius: 6
+        }]
+      };
+
+      setFftData(chartData);
+      setFftMeta(`FFT Data - ${data.count} points with slope calculation`);
+
+    } catch (error) {
+      console.error('Error loading FFT data:', error);
+      setFftMeta(`Error: ${error.message}`);
+    }
+  };
+
   // Load chart data for a specific parameter
   const loadChartData = async (chartNumber, parameter) => {
     const setMeta = chartNumber === 1 ? setChart1Meta : chartNumber === 2 ? setChart2Meta : setChart3Meta;
     const setData = chartNumber === 1 ? setChart1Data : chartNumber === 2 ? setChart2Data : setChart3Data;
-    
+
     setMeta('Loading chart data...');
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/parameter-data/${parameter}`);
       const data = await response.json();
-      
+
       if (data.error) {
         throw new Error(data.error);
       }
-      
+
       const chartData = {
         labels: data.timestamps,
         datasets: [{
@@ -291,16 +566,10 @@ function App() {
           pointHoverRadius: 4
         }]
       };
-      
+
       setData(chartData);
       setMeta(`Showing ${data.count} points - ${data.parameter_label}`);
-      
-      // Update threshold counts only for raw z-axis data
-      if (parameter === 'raw_z') {
-        setMaxViolations(data.max_violations_count || 0);
-        setMinViolations(data.min_violations_count || 0);
-      }
-      
+
     } catch (error) {
       console.error('Error loading chart data:', error);
       setMeta(`Error: ${error.message}`);
@@ -309,6 +578,7 @@ function App() {
 
   // Load all chart data
   const loadAllChartData = () => {
+    loadFftData();
     loadChartData(1, chart1Parameter);
     loadChartData(2, chart2Parameter);
     loadChartData(3, chart3Parameter);
@@ -441,26 +711,42 @@ function App() {
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-200 ${
-      theme === 'dark' 
-        ? 'bg-gray-900 text-gray-100' 
-        : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 text-gray-900'
-    }`}>
+    <div className={`min-h-screen transition-colors duration-200 ${theme === 'dark'
+      ? 'bg-gray-900 text-gray-100'
+      : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 text-gray-900'
+      }`}>
       <div className="container mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">Cloud Monitoring Dashboard</h1>
+        {/* Theme Toggle - Absolute Top Right */}
+        <div className="absolute top-6 right-6 z-10">
           <button
             onClick={toggleTheme}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="p-3 rounded-full bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 shadow-lg border border-gray-200 dark:border-gray-700"
+            aria-label="Toggle theme"
           >
-            <span className="text-lg">{theme === 'dark' ? '☀️' : '🌙'}</span>
-            <span className="text-sm">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+            <span className="text-xl leading-none">{theme === 'dark' ? '☀️' : '🌙'}</span>
           </button>
         </div>
 
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 relative">
+          {/* Left: Wilo Logo */}
+          <div className="flex-shrink-0 w-48">
+            <img src="/wilo.png" alt="Wilo Logo" className="h-12 object-contain" />
+          </div>
+
+          {/* Center: Title */}
+          <h1 className="text-3xl font-bold text-center flex-grow bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+            Cloud Monitoring Dashboard
+          </h1>
+
+          {/* Right: VU Logo */}
+          <div className="flex-shrink-0 w-48 flex justify-end">
+            <img src="/vu.png" alt="VU Logo" className="h-20 object-contain" />
+          </div>
+        </div>
+        
         {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
             <h5 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Files</h5>
             <h2 className="text-2xl font-bold text-blue-600 dark:text-blue-400">{files.length}</h2>
@@ -469,29 +755,155 @@ function App() {
           
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
             <h5 className="text-sm font-medium text-gray-600 dark:text-gray-400">System Status</h5>
-            <h2 className={`text-2xl font-bold ${
-              systemStatus.status === 'success' ? 'text-green-600 dark:text-green-400' :
+            <h2 className={`text-2xl font-bold ${systemStatus.status === 'success' ? 'text-green-600 dark:text-green-400' :
               systemStatus.status === 'error' ? 'text-red-600 dark:text-red-400' :
-              'text-yellow-600 dark:text-yellow-400'
-            }`}>
+                'text-yellow-600 dark:text-yellow-400'
+              }`}>
               {systemStatus.text}
             </h2>
             <small className="text-gray-500 dark:text-gray-400">{systemStatus.detail}</small>
           </div>
-          
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
-            <h5 className="text-sm font-medium text-gray-600 dark:text-gray-400">Max Threshold (≥ 0.6)</h5>
-            <h2 className="text-2xl font-bold text-red-600 dark:text-red-400">{maxViolations}</h2>
-            <small className="text-gray-500 dark:text-gray-400">violations detected</small>
+        </div>
+        
+        {/* Create Event Button and Event Selector */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div className="flex-1 max-w-md">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Select Previous Event
+            </label>
+            <select
+              value={selectedExistingEvent}
+              onChange={(e) => {
+                setSelectedExistingEvent(e.target.value);
+                setShowEventModal(true);
+                setEventTime(''); // Clear time when selecting a new event type
+              }}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">-- Select an existing event --</option>
+              {eventHistory.map((event, idx) => (
+                <option key={idx} value={event}>
+                  {event}
+                </option>
+              ))}
+            </select>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
-            <h5 className="text-sm font-medium text-gray-600 dark:text-gray-400">Min Threshold (≤ -0.1)</h5>
-            <h2 className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{minViolations}</h2>
-            <small className="text-gray-500 dark:text-gray-400">violations detected</small>
+          <button
+            onClick={() => {
+              setShowEventModal(true);
+              setSelectedExistingEvent(''); // Ensure new event form is shown
+              setEventTime('');
+              setEventName('');
+            }}
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create Event
+          </button>
+        </div>
+        
+        {/* FFT Graph */}
+        <div className="mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-opacity-60 dark:bg-opacity-60">
+            <div className="p-6">
+              <h5 className="text-xl font-bold mb-3 text-gray-900 dark:text-gray-100">FFT Amplitude Analysis</h5>
+              <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">{fftMeta}</div>
+              <div className="h-96">
+                {fftData && (
+                  <Line
+                    data={{
+                      ...fftData,
+                      datasets: fftData.datasets.map(dataset => ({
+                        ...dataset,
+                        borderColor: theme === 'dark' ? 'rgb(168, 85, 247)' : 'rgb(139, 92, 246)',
+                        backgroundColor: theme === 'dark' ? 'rgba(168, 85, 247, 0.1)' : 'rgba(139, 92, 246, 0.1)',
+                        pointBackgroundColor: theme === 'dark' ? 'rgb(168, 85, 247)' : 'rgb(139, 92, 246)'
+                      }))
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      interaction: {
+                        mode: 'index',
+                        intersect: false,
+                      },
+                      plugins: {
+                        legend: {
+                          display: true,
+                          position: 'top',
+                          labels: {
+                            color: theme === 'dark' ? '#e6e6e6' : '#212529',
+                            font: { size: 12 }
+                          }
+                        },
+                        tooltip: {
+                          backgroundColor: theme === 'dark' ? 'rgba(21, 25, 34, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                          titleColor: theme === 'dark' ? '#e6e6e6' : '#212529',
+                          bodyColor: theme === 'dark' ? '#e6e6e6' : '#212529',
+                          borderColor: theme === 'dark' ? '#2a2f3a' : '#dee2e6',
+                          borderWidth: 1,
+                          padding: 12,
+                          displayColors: true,
+                          callbacks: {
+                            title: function (context) {
+                              return 'Time: ' + context[0].label;
+                            },
+                            label: function (context) {
+                              const slope = fftData.datasets[0].slopes[context.dataIndex];
+                              return [
+                                context.dataset.label + ': ' + context.parsed.y.toFixed(4),
+                                'Slope (m): ' + slope.toFixed(6)
+                              ];
+                            }
+                          }
+                        }
+                      },
+                      scales: {
+                        x: {
+                          display: true,
+                          title: {
+                            display: true,
+                            text: 'Time',
+                            color: theme === 'dark' ? '#e6e6e6' : '#212529',
+                            font: { size: 12 }
+                          },
+                          ticks: {
+                            color: theme === 'dark' ? '#a0a0a0' : '#6c757d',
+                            maxTicksLimit: 8,
+                            font: { size: 10 }
+                          },
+                          grid: {
+                            color: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
+                          }
+                        },
+                        y: {
+                          display: true,
+                          title: {
+                            display: true,
+                            text: 'Amplitude',
+                            color: theme === 'dark' ? '#e6e6e6' : '#212529',
+                            font: { size: 12 }
+                          },
+                          ticks: {
+                            color: theme === 'dark' ? '#a0a0a0' : '#6c757d',
+                            font: { size: 10 }
+                          },
+                          grid: {
+                            color: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
+                          }
+                        }
+                      }
+                    }}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </div>
-
+        
         {/* Three Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <ParameterChart
@@ -503,6 +915,7 @@ function App() {
             onParameterChange={setChart1Parameter}
             options={BASIC_STATS_OPTIONS}
             title="Basic Amplitude Statistics"
+            onExpand={() => setExpandedChartIndex(0)}
           />
           
           <ParameterChart
@@ -514,6 +927,7 @@ function App() {
             onParameterChange={setChart2Parameter}
             options={HEALTH_RATIOS_OPTIONS}
             title="Severity / Health Ratios"
+            onExpand={() => setExpandedChartIndex(1)}
           />
           
           <ParameterChart
@@ -525,9 +939,24 @@ function App() {
             onParameterChange={setChart3Parameter}
             options={DISTRIBUTION_OPTIONS}
             title="Distribution & Extras"
+            onExpand={() => setExpandedChartIndex(2)}
           />
         </div>
-
+        
+        {/* Graph Modal */}
+        {expandedChartIndex !== null && (
+          <GraphModal
+            isOpen={true}
+            onClose={() => setExpandedChartIndex(null)}
+            chartData={chartsConfig[expandedChartIndex].data}
+            parameter={chartsConfig[expandedChartIndex].parameter}
+            title={chartsConfig[expandedChartIndex].title}
+            theme={theme}
+            options={chartsConfig[expandedChartIndex].options}
+            onParameterChange={chartsConfig[expandedChartIndex].setParameter}
+          />
+        )}
+        
         {/* Files Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
@@ -548,7 +977,7 @@ function App() {
               </div>
             </div>
           </div>
-
+          
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
             <div className="p-6">
               <h5 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Activity Log</h5>
@@ -568,7 +997,115 @@ function App() {
             </div>
           </div>
         </div>
+        
+        {/* Event Creation Modal */}
+        {showEventModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm"
+            onClick={() => {
+              setShowEventModal(false);
+              setEventTime('');
+              setEventName('');
+              setSelectedExistingEvent('');
+            }}
+          >
+            <div
+              className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setShowEventModal(false);
+                  setEventTime('');
+                  setEventName('');
+                  setSelectedExistingEvent('');
+                }}
+                className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 group"
+                aria-label="Close modal"
+              >
+                <svg
+                  className="w-6 h-6 text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              
+              {/* Modal Content */}
+              <h3 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">
+                {selectedExistingEvent ? 'Log Existing Event' : 'Create New Event'}
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Event Time
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={eventTime}
+                    onChange={(e) => setEventTime(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+                
+                {selectedExistingEvent ? (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      Event Name:
+                    </p>
+                    <p className="text-lg font-bold text-blue-900 dark:text-blue-100 mt-1">
+                      {selectedExistingEvent}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      New Event Name
+                    </label>
+                    <input
+                      type="text"
+                      value={eventName}
+                      onChange={(e) => setEventName(e.target.value)}
+                      placeholder="Enter new event name..."
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    />
+                  </div>
+                )}
+                
+                <button
+                  onClick={() => {
+                    const finalEventName = selectedExistingEvent || eventName;
 
+                    if (eventTime && finalEventName) {
+                      console.log('Event Created:', { time: eventTime, name: finalEventName });
+                      alert(`Event "${finalEventName}" logged for ${new Date(eventTime).toLocaleString()}`);
+
+                      // Add to history if it's a new event name and not already present
+                      if (!selectedExistingEvent && eventName && !eventHistory.includes(eventName)) {
+                        setEventHistory(prev => [...prev, eventName]);
+                      }
+                      
+                      setEventTime('');
+                      setEventName('');
+                      setSelectedExistingEvent('');
+                      setShowEventModal(false);
+                    } else {
+                      alert('Please fill in all required fields');
+                    }
+                  }}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200"
+                >
+                  {selectedExistingEvent ? 'Log Event' : 'Create Event'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Info Alert */}
         <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <h5 className="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-2">
