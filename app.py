@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_from_directory, abort, Response
+from flask import Flask, jsonify, send_from_directory, abort, Response, request
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from watchdog.observers import Observer
@@ -11,6 +11,7 @@ import json
 import csv
 import numpy as np
 from scipy import stats
+from event_manager import EventManager
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:5173", "http://127.0.0.1:5173"])  # Vite default port
@@ -19,8 +20,13 @@ socketio = SocketIO(app, cors_allowed_origins=["http://localhost:5173", "http://
 # Configure the data directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'Data')
+EVENTS_DIR = os.path.join(BASE_DIR, 'Events')
 FNAME_RE = re.compile(r"^[^/\\]+\.csv$")  # simple guard against path traversal
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(EVENTS_DIR, exist_ok=True)
+
+# Initialize Event Manager
+event_manager = EventManager(EVENTS_DIR, DATA_DIR)
 
 def load_config():
     cfg_path = os.path.join(BASE_DIR, 'config.json')
@@ -382,6 +388,66 @@ def get_parameter_data(parameter):
             'count': len(timestamps),
             'statistics': stats_data,
             'status': status_msg
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/create-event', methods=['POST'])
+def create_event():
+    """Create a new failure event with slope tracking."""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        event_name = data.get('event_name')
+        failure_time_iso = data.get('failure_time_iso')
+        
+        if not event_name or not failure_time_iso:
+            return jsonify({'error': 'event_name and failure_time_iso are required'}), 400
+        
+        result = event_manager.create_event(event_name, failure_time_iso)
+        return jsonify(result), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/events')
+def list_events():
+    """List all logged events with metadata."""
+    try:
+        events = event_manager.list_events()
+        return jsonify({
+            'events': events,
+            'count': len(events)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/event/<event_id>')
+def get_event(event_id):
+    """Get detailed data for a specific event."""
+    try:
+        event_data = event_manager.get_event(event_id)
+        
+        if event_data is None:
+            return jsonify({'error': 'Event not found'}), 404
+        
+        return jsonify(event_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/event-names')
+def get_event_names():
+    """Get list of unique event names for dropdown."""
+    try:
+        event_names = event_manager.get_unique_event_names()
+        return jsonify({
+            'event_names': event_names,
+            'count': len(event_names)
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

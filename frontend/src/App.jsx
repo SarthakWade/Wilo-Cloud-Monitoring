@@ -434,12 +434,27 @@ function App() {
   const [eventName, setEventName] = useState('');
   const [selectedExistingEvent, setSelectedExistingEvent] = useState('');
   const [eventHistory, setEventHistory] = useState([]);
+  const [eventSubmitting, setEventSubmitting] = useState(false);
 
   // Modal state
   const [expandedChartIndex, setExpandedChartIndex] = useState(null);
 
   const socketRef = useRef(null);
   const countdownTimerRef = useRef(null);
+
+  // Load event names from backend
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/event-names`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.event_names) {
+          setEventHistory(data.event_names);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading event names:', error);
+      });
+  }, []);
 
   // Configuration for the three charts to map index to state
   const chartsConfig = [
@@ -744,7 +759,7 @@ function App() {
             <img src="/vu.png" alt="VU Logo" className="h-12 object-contain" />
           </div>
         </div>
-        
+
         {/* Status Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -752,7 +767,7 @@ function App() {
             <h2 className="text-2xl font-bold text-[#566246] dark:text-[#a4c2a5]">{files.length}</h2>
             <small className="text-gray-500 dark:text-gray-400">CSV files monitored</small>
           </div>
-          
+
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
             <h5 className="text-sm font-medium text-gray-600 dark:text-gray-400">System Status</h5>
             <h2 className={`text-2xl font-bold ${systemStatus.status === 'success' ? 'text-green-600 dark:text-green-400' :
@@ -764,7 +779,7 @@ function App() {
             <small className="text-gray-500 dark:text-gray-400">{systemStatus.detail}</small>
           </div>
         </div>
-        
+
         {/* Create Event Button and Event Selector */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div className="flex-1 max-w-md">
@@ -788,7 +803,7 @@ function App() {
               ))}
             </select>
           </div>
-          
+
           <button
             onClick={() => {
               setShowEventModal(true);
@@ -804,7 +819,7 @@ function App() {
             Create Event
           </button>
         </div>
-        
+
         {/* FFT Graph */}
         <div className="mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-opacity-60 dark:bg-opacity-60">
@@ -903,7 +918,7 @@ function App() {
             </div>
           </div>
         </div>
-        
+
         {/* Three Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <ParameterChart
@@ -917,7 +932,7 @@ function App() {
             title="Basic Amplitude Statistics"
             onExpand={() => setExpandedChartIndex(0)}
           />
-          
+
           <ParameterChart
             chartData={chart2Data}
             parameter={chart2Parameter}
@@ -929,7 +944,7 @@ function App() {
             title="Severity / Health Ratios"
             onExpand={() => setExpandedChartIndex(1)}
           />
-          
+
           <ParameterChart
             chartData={chart3Data}
             parameter={chart3Parameter}
@@ -942,7 +957,7 @@ function App() {
             onExpand={() => setExpandedChartIndex(2)}
           />
         </div>
-        
+
         {/* Graph Modal */}
         {expandedChartIndex !== null && (
           <GraphModal
@@ -956,7 +971,7 @@ function App() {
             onParameterChange={chartsConfig[expandedChartIndex].setParameter}
           />
         )}
-        
+
         {/* Files Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
@@ -977,7 +992,7 @@ function App() {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
             <div className="p-6">
               <h5 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Activity Log</h5>
@@ -997,7 +1012,7 @@ function App() {
             </div>
           </div>
         </div>
-        
+
         {/* Event Creation Modal */}
         {showEventModal && (
           <div
@@ -1033,12 +1048,12 @@ function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              
+
               {/* Modal Content */}
               <h3 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">
                 {selectedExistingEvent ? 'Log Existing Event' : 'Create New Event'}
               </h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1051,7 +1066,7 @@ function App() {
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
-                
+
                 {selectedExistingEvent ? (
                   <div className="p-4 bg-[#d8dad3] dark:bg-[#566246]/30 rounded-lg border border-[#a4c2a5] dark:border-[#566246]">
                     <p className="text-sm font-medium text-[#566246] dark:text-[#d8dad3]">
@@ -1075,31 +1090,65 @@ function App() {
                     />
                   </div>
                 )}
-                
+
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const finalEventName = selectedExistingEvent || eventName;
 
-                    if (eventTime && finalEventName) {
-                      console.log('Event Created:', { time: eventTime, name: finalEventName });
-                      alert(`Event "${finalEventName}" logged for ${new Date(eventTime).toLocaleString()}`);
+                    if (!eventTime || !finalEventName) {
+                      alert('Please fill in all required fields');
+                      return;
+                    }
 
-                      // Add to history if it's a new event name and not already present
-                      if (!selectedExistingEvent && eventName && !eventHistory.includes(eventName)) {
-                        setEventHistory(prev => [...prev, eventName]);
+                    setEventSubmitting(true);
+
+                    try {
+                      // Convert datetime-local format to ISO format
+                      const failureTimeISO = new Date(eventTime).toISOString();
+
+                      const response = await fetch(`${API_BASE_URL}/create-event`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          event_name: finalEventName,
+                          failure_time_iso: failureTimeISO
+                        })
+                      });
+
+                      const data = await response.json();
+
+                      if (!response.ok) {
+                        throw new Error(data.error || 'Failed to create event');
                       }
-                      
+
+                      alert(`Event "${finalEventName}" successfully logged!\n\nEvent ID: ${data.event_id}\nTime Before Failure: ${Math.abs(data.metadata.time_before_failure_seconds).toFixed(2)} seconds\nData Points Tracked: ${data.metadata.total_data_points}\n\nAnalyzing slopes from ${Math.abs(data.metadata.time_before_failure_seconds).toFixed(2)}s before failure back to baseline.`);
+
+                      // Refresh event names list
+                      const namesResponse = await fetch(`${API_BASE_URL}/event-names`);
+                      const namesData = await namesResponse.json();
+                      if (namesData.event_names) {
+                        setEventHistory(namesData.event_names);
+                      }
+
+                      // Reset form
                       setEventTime('');
                       setEventName('');
                       setSelectedExistingEvent('');
                       setShowEventModal(false);
-                    } else {
-                      alert('Please fill in all required fields');
+
+                    } catch (error) {
+                      console.error('Error creating event:', error);
+                      alert(`Error: ${error.message}`);
+                    } finally {
+                      setEventSubmitting(false);
                     }
                   }}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-[#566246] to-[#a4c2a5] hover:from-[#4a4a48] hover:to-[#8ba68c] text-[#f1f2eb] font-semibold rounded-lg shadow-lg transition-all duration-200"
+                  disabled={eventSubmitting}
+                  className={`w-full px-6 py-3 bg-gradient-to-r from-[#566246] to-[#a4c2a5] hover:from-[#4a4a48] hover:to-[#8ba68c] text-[#f1f2eb] font-semibold rounded-lg shadow-lg transition-all duration-200 ${eventSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  {selectedExistingEvent ? 'Log Event' : 'Create Event'}
+                  {eventSubmitting ? 'Creating...' : (selectedExistingEvent ? 'Log Event' : 'Create Event')}
                 </button>
               </div>
             </div>

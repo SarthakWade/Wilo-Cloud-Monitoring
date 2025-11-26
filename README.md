@@ -7,6 +7,7 @@ A real-time cloud monitoring dashboard for sensor data analysis with comprehensi
 - **Three Independent Charts**: Simultaneous visualization of different statistical parameters
 - **Real-time Updates**: Live data streaming via Socket.IO
 - **Comprehensive Statistics**: 21+ statistical parameters including amplitude, health ratios, and distribution features
+- **Event Logging**: Manual failure event tracking with automatic slope analysis from failure to recovery
 - **Modern UI**: React + TailwindCSS with dark/light theme support
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
 
@@ -96,10 +97,19 @@ timestamp,value
 
 ## API Endpoints
 
+### Data Endpoints
 - `GET /files` - List all CSV files
 - `GET /parameter-data/<parameter>` - Get time-series data for specific parameter
 - `GET /chart-data` - Get complete chart data with statistics
 - `GET /view/<filename>` - View CSV file contents
+
+### Event Logging Endpoints
+- `POST /create-event` - Create new failure event with slope tracking
+- `GET /events` - List all logged events
+- `GET /event/<event_id>` - Get detailed event data
+- `GET /event-names` - Get unique event names for dropdown
+
+See [EVENTS_README.md](EVENTS_README.md) for detailed event logging documentation.
 
 ## Configuration
 

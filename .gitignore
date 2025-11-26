@@ -1,5 +1,7 @@
 # Data and Environment
 Data/
+Events/*.csv
+Events/*.json
 venv/
 __pycache__/
 *.pyc
