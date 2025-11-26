@@ -59,7 +59,7 @@ bun install  # or npm install
 ```bash
 source venv/bin/activate
 python app.py
-# Runs on http://localhost:5000
+# Runs on http://localhost:5001
 ```
 
 ### Start Frontend

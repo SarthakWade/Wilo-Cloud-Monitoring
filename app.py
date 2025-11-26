@@ -396,7 +396,7 @@ if __name__ == '__main__':
     try:
         # Run the Flask app on all network interfaces
         print(' * Starting Flask application...')
-        socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+        socketio.run(app, host='0.0.0.0', port=5001, debug=True)
     finally:
         observer.stop()
         observer.join()

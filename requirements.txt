@@ -1,7 +1,8 @@
 Flask==2.3.3
 Flask-SocketIO==5.3.6
-numpy==1.24.3
-scipy==1.11.1
+flask-cors>=4.0.0
+numpy>=1.26.0
+scipy>=1.11.4
 watchdog==3.0.0
 python-socketio==5.8.0
 python-engineio==4.7.1

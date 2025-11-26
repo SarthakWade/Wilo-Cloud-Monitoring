@@ -28,7 +28,7 @@ ChartJS.register(
 const INTERVAL_SECONDS = 300;
 const MAX_THRESHOLD = 0.6;
 const MIN_THRESHOLD = -0.1;
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'http://localhost:5001';
 
 // Parameter options for each chart
 const BASIC_STATS_OPTIONS = [
@@ -63,33 +63,33 @@ const DISTRIBUTION_OPTIONS = [
 ];
 
 const OPTION_COLORS = [
-  '#EF4444', // red-500
-  '#F97316', // orange-500
-  '#F59E0B', // amber-500
-  '#84CC16', // lime-500
-  '#10B981', // emerald-500
-  '#06B6D4', // cyan-500
-  '#3B82F6', // blue-500
-  '#6366F1', // indigo-500
-  '#8B5CF6', // violet-500
-  '#EC4899', // pink-500
+  '#566246', // Ebony
+  '#a4c2a5', // Muted Teal
+  '#8ba68c', // Teal variant
+  '#6d8a6e', // Darker teal
+  '#4a4a48', // Charcoal
+  '#7a8a7b', // Grey-teal mix
+  '#9db29e', // Light teal
+  '#758d76', // Medium teal
+  '#5a6b5b', // Dark teal
+  '#d8dad3', // Dust Grey
 ];
 
-// Chart colors for different themes
+// Chart colors for different themes - Soft Linen Palette
 const getChartColors = (theme, chartIndex) => {
   const isDark = theme === 'dark';
   const colors = [
     {
-      border: isDark ? 'rgb(99, 102, 241)' : 'rgb(59, 130, 246)',
-      bg: isDark ? 'rgba(99, 102, 241, 0.1)' : 'rgba(59, 130, 246, 0.1)'
+      border: isDark ? 'rgb(164, 194, 165)' : 'rgb(86, 98, 70)',
+      bg: isDark ? 'rgba(164, 194, 165, 0.15)' : 'rgba(86, 98, 70, 0.1)'
     },
     {
-      border: isDark ? 'rgb(16, 185, 129)' : 'rgb(34, 197, 94)',
-      bg: isDark ? 'rgba(16, 185, 129, 0.1)' : 'rgba(34, 197, 94, 0.1)'
+      border: isDark ? 'rgb(139, 166, 140)' : 'rgb(107, 138, 108)',
+      bg: isDark ? 'rgba(139, 166, 140, 0.15)' : 'rgba(107, 138, 108, 0.1)'
     },
     {
-      border: isDark ? 'rgb(245, 158, 11)' : 'rgb(251, 191, 36)',
-      bg: isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(251, 191, 36, 0.1)'
+      border: isDark ? 'rgb(157, 178, 158)' : 'rgb(90, 107, 91)',
+      bg: isDark ? 'rgba(157, 178, 158, 0.15)' : 'rgba(90, 107, 91, 0.1)'
     }
   ];
   return colors[chartIndex % colors.length];
@@ -114,15 +114,15 @@ const GraphModal = ({ isOpen, onClose, chartData, parameter, title, theme, optio
         display: true,
         position: 'top',
         labels: {
-          color: isDark ? '#e6e6e6' : '#212529',
+          color: isDark ? '#f1f2eb' : '#4a4a48',
           font: { size: 14 }
         }
       },
       tooltip: {
-        backgroundColor: isDark ? 'rgba(21, 25, 34, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-        titleColor: isDark ? '#e6e6e6' : '#212529',
-        bodyColor: isDark ? '#e6e6e6' : '#212529',
-        borderColor: isDark ? '#2a2f3a' : '#dee2e6',
+        backgroundColor: isDark ? 'rgba(86, 98, 70, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+        titleColor: isDark ? '#f1f2eb' : '#4a4a48',
+        bodyColor: isDark ? '#f1f2eb' : '#4a4a48',
+        borderColor: isDark ? '#4a4a48' : '#d8dad3',
         borderWidth: 1,
         padding: 12,
         displayColors: true,
@@ -276,15 +276,15 @@ const ParameterChart = ({
         display: true,
         position: 'top',
         labels: {
-          color: isDark ? '#e6e6e6' : '#212529',
+          color: isDark ? '#f1f2eb' : '#4a4a48',
           font: { size: 10 }
         }
       },
       tooltip: {
-        backgroundColor: isDark ? 'rgba(21, 25, 34, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-        titleColor: isDark ? '#e6e6e6' : '#212529',
-        bodyColor: isDark ? '#e6e6e6' : '#212529',
-        borderColor: isDark ? '#2a2f3a' : '#dee2e6',
+        backgroundColor: isDark ? 'rgba(86, 98, 70, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+        titleColor: isDark ? '#f1f2eb' : '#4a4a48',
+        bodyColor: isDark ? '#f1f2eb' : '#4a4a48',
+        borderColor: isDark ? '#4a4a48' : '#d8dad3',
         borderWidth: 1,
         padding: 8,
         displayColors: true,
@@ -304,11 +304,11 @@ const ParameterChart = ({
         title: {
           display: true,
           text: 'Timestamp',
-          color: isDark ? '#e6e6e6' : '#212529',
+          color: isDark ? '#f1f2eb' : '#4a4a48',
           font: { size: 10 }
         },
         ticks: {
-          color: isDark ? '#a0a0a0' : '#6c757d',
+          color: isDark ? '#d8dad3' : '#566246',
           maxTicksLimit: 5,
           font: { size: 9 }
         },
@@ -321,11 +321,11 @@ const ParameterChart = ({
         title: {
           display: true,
           text: chartData?.datasets?.[0]?.label || 'Value',
-          color: isDark ? '#e6e6e6' : '#212529',
+          color: isDark ? '#f1f2eb' : '#4a4a48',
           font: { size: 10 }
         },
         ticks: {
-          color: isDark ? '#a0a0a0' : '#6c757d',
+          color: isDark ? '#d8dad3' : '#566246',
           font: { size: 9 }
         },
         grid: {
@@ -360,7 +360,7 @@ const ParameterChart = ({
           <h5 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h5>
           <button
             onClick={onExpand}
-            className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center gap-2"
+            className="px-3 py-1.5 text-sm bg-[#566246] hover:bg-[#4a4a48] dark:bg-[#a4c2a5] dark:hover:bg-[#8ba68c] text-[#f1f2eb] rounded-lg transition-colors duration-200 flex items-center gap-2"
             aria-label="Expand graph"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -712,8 +712,8 @@ function App() {
 
   return (
     <div className={`min-h-screen transition-colors duration-200 ${theme === 'dark'
-      ? 'bg-gray-900 text-gray-100'
-      : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 text-gray-900'
+      ? 'bg-[#4a4a48] text-[#f1f2eb]'
+      : 'bg-[#f1f2eb] text-[#4a4a48]'
       }`}>
       <div className="container mx-auto px-4 py-6">
         {/* Theme Toggle - Absolute Top Right */}
@@ -735,7 +735,7 @@ function App() {
           </div>
 
           {/* Center: Title */}
-          <h1 className="text-3xl font-bold text-center flex-grow bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+          <h1 className="text-3xl font-bold text-center flex-grow bg-clip-text text-transparent bg-gradient-to-r from-[#566246] to-[#a4c2a5] dark:from-[#a4c2a5] dark:to-[#d8dad3]">
             Cloud Monitoring Dashboard
           </h1>
 
@@ -749,7 +749,7 @@ function App() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
             <h5 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Files</h5>
-            <h2 className="text-2xl font-bold text-blue-600 dark:text-blue-400">{files.length}</h2>
+            <h2 className="text-2xl font-bold text-[#566246] dark:text-[#a4c2a5]">{files.length}</h2>
             <small className="text-gray-500 dark:text-gray-400">CSV files monitored</small>
           </div>
           
@@ -796,7 +796,7 @@ function App() {
               setEventTime('');
               setEventName('');
             }}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
+            className="px-6 py-3 bg-gradient-to-r from-[#566246] to-[#a4c2a5] hover:from-[#4a4a48] hover:to-[#8ba68c] text-[#f1f2eb] font-semibold rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -818,9 +818,9 @@ function App() {
                       ...fftData,
                       datasets: fftData.datasets.map(dataset => ({
                         ...dataset,
-                        borderColor: theme === 'dark' ? 'rgb(168, 85, 247)' : 'rgb(139, 92, 246)',
-                        backgroundColor: theme === 'dark' ? 'rgba(168, 85, 247, 0.1)' : 'rgba(139, 92, 246, 0.1)',
-                        pointBackgroundColor: theme === 'dark' ? 'rgb(168, 85, 247)' : 'rgb(139, 92, 246)'
+                        borderColor: theme === 'dark' ? 'rgb(164, 194, 165)' : 'rgb(86, 98, 70)',
+                        backgroundColor: theme === 'dark' ? 'rgba(164, 194, 165, 0.15)' : 'rgba(86, 98, 70, 0.1)',
+                        pointBackgroundColor: theme === 'dark' ? 'rgb(164, 194, 165)' : 'rgb(86, 98, 70)'
                       }))
                     }}
                     options={{
@@ -835,15 +835,15 @@ function App() {
                           display: true,
                           position: 'top',
                           labels: {
-                            color: theme === 'dark' ? '#e6e6e6' : '#212529',
+                            color: theme === 'dark' ? '#f1f2eb' : '#4a4a48',
                             font: { size: 12 }
                           }
                         },
                         tooltip: {
-                          backgroundColor: theme === 'dark' ? 'rgba(21, 25, 34, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-                          titleColor: theme === 'dark' ? '#e6e6e6' : '#212529',
-                          bodyColor: theme === 'dark' ? '#e6e6e6' : '#212529',
-                          borderColor: theme === 'dark' ? '#2a2f3a' : '#dee2e6',
+                          backgroundColor: theme === 'dark' ? 'rgba(86, 98, 70, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                          titleColor: theme === 'dark' ? '#f1f2eb' : '#4a4a48',
+                          bodyColor: theme === 'dark' ? '#f1f2eb' : '#4a4a48',
+                          borderColor: theme === 'dark' ? '#4a4a48' : '#d8dad3',
                           borderWidth: 1,
                           padding: 12,
                           displayColors: true,
@@ -867,11 +867,11 @@ function App() {
                           title: {
                             display: true,
                             text: 'Time',
-                            color: theme === 'dark' ? '#e6e6e6' : '#212529',
+                            color: theme === 'dark' ? '#f1f2eb' : '#4a4a48',
                             font: { size: 12 }
                           },
                           ticks: {
-                            color: theme === 'dark' ? '#a0a0a0' : '#6c757d',
+                            color: theme === 'dark' ? '#d8dad3' : '#566246',
                             maxTicksLimit: 8,
                             font: { size: 10 }
                           },
@@ -884,11 +884,11 @@ function App() {
                           title: {
                             display: true,
                             text: 'Amplitude',
-                            color: theme === 'dark' ? '#e6e6e6' : '#212529',
+                            color: theme === 'dark' ? '#f1f2eb' : '#4a4a48',
                             font: { size: 12 }
                           },
                           ticks: {
-                            color: theme === 'dark' ? '#a0a0a0' : '#6c757d',
+                            color: theme === 'dark' ? '#d8dad3' : '#566246',
                             font: { size: 10 }
                           },
                           grid: {
@@ -982,8 +982,8 @@ function App() {
             <div className="p-6">
               <h5 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Activity Log</h5>
               <div className="space-y-2">
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <div className="text-sm text-blue-800 dark:text-blue-200">{latestActivity}</div>
+                <div className="p-3 bg-[#d8dad3] dark:bg-[#566246]/30 rounded-lg">
+                  <div className="text-sm text-[#566246] dark:text-[#d8dad3]">{latestActivity}</div>
                 </div>
                 <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div className="text-sm text-gray-600 dark:text-gray-400">{nextExpected}</div>
@@ -1053,11 +1053,11 @@ function App() {
                 </div>
                 
                 {selectedExistingEvent ? (
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                  <div className="p-4 bg-[#d8dad3] dark:bg-[#566246]/30 rounded-lg border border-[#a4c2a5] dark:border-[#566246]">
+                    <p className="text-sm font-medium text-[#566246] dark:text-[#d8dad3]">
                       Event Name:
                     </p>
-                    <p className="text-lg font-bold text-blue-900 dark:text-blue-100 mt-1">
+                    <p className="text-lg font-bold text-[#4a4a48] dark:text-[#f1f2eb] mt-1">
                       {selectedExistingEvent}
                     </p>
                   </div>
@@ -1097,7 +1097,7 @@ function App() {
                       alert('Please fill in all required fields');
                     }
                   }}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200"
+                  className="w-full px-6 py-3 bg-gradient-to-r from-[#566246] to-[#a4c2a5] hover:from-[#4a4a48] hover:to-[#8ba68c] text-[#f1f2eb] font-semibold rounded-lg shadow-lg transition-all duration-200"
                 >
                   {selectedExistingEvent ? 'Log Event' : 'Create Event'}
                 </button>
