@@ -1050,46 +1050,50 @@ function App() {
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark'
+    <div className={`min-h-screen transition-colors duration-300 overflow-x-hidden ${theme === 'dark'
       ? 'bg-slate-900 text-slate-100'
       : 'bg-slate-50 text-slate-900'
       }`}>
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Theme Toggle - Floating */}
-        <div className="fixed top-6 right-6 z-50">
+      <div className="container mx-auto px-4 py-8 max-w-7xl overflow-x-hidden">
+        {/* Theme Toggle - Responsive Position */}
+        <div className="fixed top-4 right-4 md:top-6 md:right-6 z-50">
           <button
             onClick={toggleTheme}
-            className="p-3 rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl hover:bg-white dark:hover:bg-slate-700 transition-all duration-300 shadow-lg border border-slate-200/50 dark:border-slate-700/50 hover:scale-105"
+            className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl hover:bg-white dark:hover:bg-slate-700 transition-all duration-300 shadow-lg border border-slate-200/50 dark:border-slate-700/50 hover:scale-105"
             aria-label="Toggle theme"
           >
-            <span className="text-xl leading-none block transition-transform duration-300 hover:rotate-12">{theme === 'dark' ? '☀️' : '🌙'}</span>
+            <span className="text-lg md:text-xl leading-none block transition-transform duration-300 hover:rotate-12">{theme === 'dark' ? '☀️' : '🌙'}</span>
           </button>
         </div>
 
-        {/* Header - Enhanced */}
-        <header className="mb-10 relative">
-          <div className="flex items-center justify-between bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl p-6 rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-700/50">
-            {/* Left: Wilo Logo */}
-            <div className="flex-shrink-0 w-40">
-              <img src="/wilo.png" alt="Wilo Logo" className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity" />
-            </div>
+        {/* Header / Navbar - Sticky on Mobile */}
+        <header className="sticky top-0 z-40 mb-6 md:mb-10 md:relative">
+          <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b md:border border-slate-200/50 dark:border-slate-700/50 shadow-lg md:shadow-xl rounded-none md:rounded-2xl p-3 md:p-6 transition-all duration-300">
+            <div className="flex items-center justify-between gap-2 md:gap-4 max-w-full">
+              
+              {/* Left: Wilo Logo */}
+              <div className="flex-shrink-0">
+                <img src="/wilo.png" alt="Wilo Logo" className="h-6 xs:h-8 md:h-12 object-contain opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
 
-            {/* Center: Title */}
-            <div className="text-center flex-grow">
-              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 bg-clip-text text-transparent">
-                Cloud Monitoring Dashboard
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Real-time sensor data analysis</p>
-            </div>
+              {/* Center: Title */}
+              <div className="flex-1 text-center min-w-0 px-1">
+                <h1 className="text-sm xs:text-base sm:text-xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 bg-clip-text text-transparent break-words leading-tight truncate">
+                  <span className="hidden sm:inline">Cloud Monitoring Dashboard</span>
+                  <span className="sm:hidden">Cloud Dashboard</span>
+                </h1>
+                <p className="text-[10px] md:text-sm text-slate-500 dark:text-slate-400 mt-0.5 md:mt-1 hidden xs:block truncate">Real-time analytics</p>
+              </div>
 
-            {/* Right: VU Logo */}
-            <div className="flex-shrink-0 w-40 flex justify-end">
-              <img src="/vu.png" alt="VU Logo" className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity" />
+              {/* Right: VU Logo */}
+              <div className="flex-shrink-0">
+                <img src="/vu.png" alt="VU Logo" className="h-6 xs:h-8 md:h-12 object-contain opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
             </div>
           </div>
           
-          {/* Gradient accent line */}
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/3 h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent rounded-full opacity-50"></div>
+          {/* Gradient accent line - Hidden on mobile */}
+          <div className="hidden md:block absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/3 h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent rounded-full opacity-50"></div>
         </header>
 
         {/* Status Cards - Enhanced */}
@@ -1123,13 +1127,13 @@ function App() {
                 </div>
                 <h5 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">System Status</h5>
               </div>
-              <div className="flex items-center gap-3 mb-1">
-                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${systemStatus.status === 'success' ? 'bg-emerald-500/10 text-emerald-500' : systemStatus.status === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                  <span className={`w-2 h-2 rounded-full animate-pulse ${systemStatus.status === 'success' ? 'bg-emerald-500' : systemStatus.status === 'error' ? 'bg-red-500' : 'bg-amber-500'}`}></span>
-                  {systemStatus.text}
+              <div className="flex items-center gap-3 mb-1 flex-wrap">
+                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold break-words ${systemStatus.status === 'success' ? 'bg-emerald-500/10 text-emerald-500' : systemStatus.status === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                  <span className={`w-2 h-2 rounded-full animate-pulse flex-shrink-0 ${systemStatus.status === 'success' ? 'bg-emerald-500' : systemStatus.status === 'error' ? 'bg-red-500' : 'bg-amber-500'}`}></span>
+                  <span className="break-words">{systemStatus.text}</span>
                 </span>
               </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{systemStatus.detail}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 break-words">{systemStatus.detail}</p>
             </div>
           </div>
         </div>
@@ -1152,7 +1156,7 @@ function App() {
                   type="date"
                   value={startDate}
                   onChange={(e) => handleDateFilterChange('startDate', e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-slate-100 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white/90 dark:bg-slate-700/90 text-slate-900 dark:text-slate-100 transition-all duration-200 appearance-none min-h-[48px]"
                 />
               </div>
               <div>
@@ -1163,7 +1167,7 @@ function App() {
                   type="date"
                   value={endDate}
                   onChange={(e) => handleDateFilterChange('endDate', e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-slate-100 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white/90 dark:bg-slate-700/90 text-slate-900 dark:text-slate-100 transition-all duration-200 appearance-none min-h-[48px]"
                 />
               </div>
             </div>
@@ -1189,7 +1193,7 @@ function App() {
                   value={timeDate}
                   onChange={(e) => handleTimeFilterChange('timeDate', e.target.value)}
                   placeholder="Current date"
-                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-slate-100 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 bg-white/90 dark:bg-slate-700/90 text-slate-900 dark:text-slate-100 transition-all duration-200 appearance-none min-h-[48px]"
                 />
               </div>
               <div>
@@ -1209,7 +1213,7 @@ function App() {
                       handleTimeFilterChange('startTime', `${hour}:00`);
                     }
                   }}
-                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-slate-100 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 bg-white/90 dark:bg-slate-700/90 text-slate-900 dark:text-slate-100 transition-all duration-200 appearance-none min-h-[48px]"
                 />
               </div>
               <div>
@@ -1229,7 +1233,7 @@ function App() {
                       handleTimeFilterChange('endTime', `${hour}:00`);
                     }
                   }}
-                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-slate-100 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 bg-white/90 dark:bg-slate-700/90 text-slate-900 dark:text-slate-100 transition-all duration-200 appearance-none min-h-[48px]"
                 />
               </div>
             </div>
