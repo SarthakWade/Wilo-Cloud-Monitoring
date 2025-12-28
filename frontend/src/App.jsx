@@ -1,17 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
 import {
-  Chart as ChartJS,
   CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
+  Chart as ChartJS,
+  Filler,
   Legend,
-  Filler
+  LinearScale,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip
 } from 'chart.js';
+import { useEffect, useRef, useState } from 'react';
 import { Line } from 'react-chartjs-2';
+import { io } from 'socket.io-client';
 import './index.css';
 
 ChartJS.register(
@@ -63,33 +63,33 @@ const DISTRIBUTION_OPTIONS = [
 ];
 
 const OPTION_COLORS = [
-  '#566246', // Ebony
-  '#a4c2a5', // Muted Teal
-  '#8ba68c', // Teal variant
-  '#6d8a6e', // Darker teal
-  '#4a4a48', // Charcoal
-  '#7a8a7b', // Grey-teal mix
-  '#9db29e', // Light teal
-  '#758d76', // Medium teal
-  '#5a6b5b', // Dark teal
-  '#d8dad3', // Dust Grey
+  '#10b981', // Emerald
+  '#3b82f6', // Blue
+  '#8b5cf6', // Purple
+  '#f59e0b', // Amber
+  '#ef4444', // Red
+  '#06b6d4', // Cyan
+  '#84cc16', // Lime
+  '#f97316', // Orange
+  '#ec4899', // Pink
+  '#6366f1', // Indigo
 ];
 
-// Chart colors for different themes - Soft Linen Palette
+// Chart colors for different themes - Modern Gradient Palette
 const getChartColors = (theme, chartIndex) => {
   const isDark = theme === 'dark';
   const colors = [
     {
-      border: isDark ? 'rgb(164, 194, 165)' : 'rgb(86, 98, 70)',
-      bg: isDark ? 'rgba(164, 194, 165, 0.15)' : 'rgba(86, 98, 70, 0.1)'
+      border: isDark ? 'rgb(52, 211, 153)' : 'rgb(16, 185, 129)',
+      bg: isDark ? 'rgba(52, 211, 153, 0.15)' : 'rgba(16, 185, 129, 0.1)'
     },
     {
-      border: isDark ? 'rgb(139, 166, 140)' : 'rgb(107, 138, 108)',
-      bg: isDark ? 'rgba(139, 166, 140, 0.15)' : 'rgba(107, 138, 108, 0.1)'
+      border: isDark ? 'rgb(96, 165, 250)' : 'rgb(59, 130, 246)',
+      bg: isDark ? 'rgba(96, 165, 250, 0.15)' : 'rgba(59, 130, 246, 0.1)'
     },
     {
-      border: isDark ? 'rgb(157, 178, 158)' : 'rgb(90, 107, 91)',
-      bg: isDark ? 'rgba(157, 178, 158, 0.15)' : 'rgba(90, 107, 91, 0.1)'
+      border: isDark ? 'rgb(167, 139, 250)' : 'rgb(139, 92, 246)',
+      bg: isDark ? 'rgba(167, 139, 250, 0.15)' : 'rgba(139, 92, 246, 0.1)'
     }
   ];
   return colors[chartIndex % colors.length];
@@ -354,13 +354,13 @@ const ParameterChart = ({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-opacity-60 dark:bg-opacity-60">
+    <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       <div className="p-6">
-        <div className="flex items-center justify-between mb-3">
-          <h5 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h5>
+        <div className="flex items-center justify-between mb-4">
+          <h5 className="text-lg font-bold text-slate-900 dark:text-slate-100">{title}</h5>
           <button
             onClick={onExpand}
-            className="px-3 py-1.5 text-sm bg-[#566246] hover:bg-[#4a4a48] dark:bg-[#a4c2a5] dark:hover:bg-[#8ba68c] text-[#f1f2eb] rounded-lg transition-colors duration-200 flex items-center gap-2"
+            className="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg transition-all duration-200 flex items-center gap-2 hover:scale-105"
             aria-label="Expand graph"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -369,12 +369,12 @@ const ParameterChart = ({
             Expand
           </button>
         </div>
-        <div className="mb-3">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
             Parameter
           </label>
           <select
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            className="w-full px-3 py-2.5 border border-slate-200/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 transition-all duration-200"
             value={parameter}
             onChange={(e) => onParameterChange(e.target.value)}
           >
@@ -385,9 +385,9 @@ const ParameterChart = ({
             ))}
           </select>
         </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">{meta}</div>
+        <div className="text-xs text-slate-500 dark:text-slate-400 mb-3">{meta}</div>
         <div
-          className="h-80 cursor-pointer hover:opacity-80 transition-opacity duration-200"
+          className="h-72 cursor-pointer rounded-xl bg-slate-50/50 dark:bg-slate-900/30 p-3 transition-all duration-200 hover:bg-slate-100/50 dark:hover:bg-slate-900/50"
           onClick={onExpand}
           role="button"
           tabIndex={0}
@@ -726,64 +726,94 @@ function App() {
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-200 ${theme === 'dark'
-      ? 'bg-[#4a4a48] text-[#f1f2eb]'
-      : 'bg-[#f1f2eb] text-[#4a4a48]'
+    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark'
+      ? 'bg-slate-900 text-slate-100'
+      : 'bg-slate-50 text-slate-900'
       }`}>
-      <div className="container mx-auto px-4 py-6">
-        {/* Theme Toggle - Absolute Top Right */}
-        <div className="absolute top-6 right-6 z-10">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Theme Toggle - Floating */}
+        <div className="fixed top-6 right-6 z-50">
           <button
             onClick={toggleTheme}
-            className="p-3 rounded-full bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 shadow-lg border border-gray-200 dark:border-gray-700"
+            className="p-3 rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl hover:bg-white dark:hover:bg-slate-700 transition-all duration-300 shadow-lg border border-slate-200/50 dark:border-slate-700/50 hover:scale-105"
             aria-label="Toggle theme"
           >
-            <span className="text-xl leading-none">{theme === 'dark' ? '☀️' : '🌙'}</span>
+            <span className="text-xl leading-none block transition-transform duration-300 hover:rotate-12">{theme === 'dark' ? '☀️' : '🌙'}</span>
           </button>
         </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 relative">
-          {/* Left: Wilo Logo */}
-          <div className="flex-shrink-0 w-48">
-            <img src="/wilo.png" alt="Wilo Logo" className="h-12 object-contain" />
+        {/* Header - Enhanced */}
+        <header className="mb-10 relative">
+          <div className="flex items-center justify-between bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl p-6 rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-700/50">
+            {/* Left: Wilo Logo */}
+            <div className="flex-shrink-0 w-40">
+              <img src="/wilo.png" alt="Wilo Logo" className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity" />
+            </div>
+
+            {/* Center: Title */}
+            <div className="text-center flex-grow">
+              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 bg-clip-text text-transparent">
+                Cloud Monitoring Dashboard
+              </h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Real-time sensor data analysis</p>
+            </div>
+
+            {/* Right: VU Logo */}
+            <div className="flex-shrink-0 w-40 flex justify-end">
+              <img src="/vu.png" alt="VU Logo" className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity" />
+            </div>
+          </div>
+          
+          {/* Gradient accent line */}
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/3 h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent rounded-full opacity-50"></div>
+        </header>
+
+        {/* Status Cards - Enhanced */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Total Files Card */}
+          <div className="group relative overflow-hidden bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 p-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-full -translate-y-1/2 translate-x-1/2"></div>
+            <div className="relative">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-emerald-500/10 rounded-xl">
+                  <svg className="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h5 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Files</h5>
+              </div>
+              <div className="text-4xl font-bold text-emerald-500 mb-1">{files.length}</div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">CSV files monitored</p>
+            </div>
           </div>
 
-          {/* Center: Title */}
-          <h1 className="text-3xl font-bold text-center flex-grow bg-clip-text text-transparent bg-gradient-to-r from-[#566246] to-[#a4c2a5] dark:from-[#a4c2a5] dark:to-[#d8dad3]">
-            Cloud Monitoring Dashboard
-          </h1>
-
-          {/* Right: VU Logo */}
-          <div className="flex-shrink-0 w-48 flex justify-end">
-            <img src="/vu.png" alt="VU Logo" className="h-12 object-contain" />
+          {/* System Status Card */}
+          <div className="group relative overflow-hidden bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 p-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+            <div className={`absolute top-0 right-0 w-32 h-32 rounded-full -translate-y-1/2 translate-x-1/2 ${systemStatus.status === 'success' ? 'bg-gradient-to-br from-emerald-500/20 to-transparent' : systemStatus.status === 'error' ? 'bg-gradient-to-br from-red-500/20 to-transparent' : 'bg-gradient-to-br from-amber-500/20 to-transparent'}`}></div>
+            <div className="relative">
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`p-2 rounded-xl ${systemStatus.status === 'success' ? 'bg-emerald-500/10' : systemStatus.status === 'error' ? 'bg-red-500/10' : 'bg-amber-500/10'}`}>
+                  <svg className={`w-6 h-6 ${systemStatus.status === 'success' ? 'text-emerald-500' : systemStatus.status === 'error' ? 'text-red-500' : 'text-amber-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h5 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">System Status</h5>
+              </div>
+              <div className="flex items-center gap-3 mb-1">
+                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${systemStatus.status === 'success' ? 'bg-emerald-500/10 text-emerald-500' : systemStatus.status === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                  <span className={`w-2 h-2 rounded-full animate-pulse ${systemStatus.status === 'success' ? 'bg-emerald-500' : systemStatus.status === 'error' ? 'bg-red-500' : 'bg-amber-500'}`}></span>
+                  {systemStatus.text}
+                </span>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{systemStatus.detail}</p>
+            </div>
           </div>
         </div>
 
-        {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
-            <h5 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Files</h5>
-            <h2 className="text-2xl font-bold text-[#566246] dark:text-[#a4c2a5]">{files.length}</h2>
-            <small className="text-gray-500 dark:text-gray-400">CSV files monitored</small>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
-            <h5 className="text-sm font-medium text-gray-600 dark:text-gray-400">System Status</h5>
-            <h2 className={`text-2xl font-bold ${systemStatus.status === 'success' ? 'text-green-600 dark:text-green-400' :
-              systemStatus.status === 'error' ? 'text-red-600 dark:text-red-400' :
-                'text-yellow-600 dark:text-yellow-400'
-              }`}>
-              {systemStatus.text}
-            </h2>
-            <small className="text-gray-500 dark:text-gray-400">{systemStatus.detail}</small>
-          </div>
-        </div>
-
-        {/* Create Event Button and Event Selector */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        {/* Create Event Section - Enhanced */}
+        <div className="mb-8 flex flex-col sm:flex-row gap-4 items-start sm:items-end justify-between bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl p-6 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
           <div className="flex-1 max-w-md">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">
               Select Previous Event
             </label>
             <select
@@ -791,9 +821,9 @@ function App() {
               onChange={(e) => {
                 setSelectedExistingEvent(e.target.value);
                 setShowEventModal(true);
-                setEventTime(''); // Clear time when selecting a new event type
+                setEventTime('');
               }}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-slate-100 transition-all duration-200"
             >
               <option value="">-- Select an existing event --</option>
               {eventHistory.map((event, idx) => (
@@ -807,26 +837,35 @@ function App() {
           <button
             onClick={() => {
               setShowEventModal(true);
-              setSelectedExistingEvent(''); // Ensure new event form is shown
+              setSelectedExistingEvent('');
               setEventTime('');
               setEventName('');
             }}
-            className="px-6 py-3 bg-gradient-to-r from-[#566246] to-[#a4c2a5] hover:from-[#4a4a48] hover:to-[#8ba68c] text-[#f1f2eb] font-semibold rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
+            className="group px-6 py-3 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 flex items-center gap-3 hover:-translate-y-0.5"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 transition-transform duration-300 group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Create Event
           </button>
         </div>
 
-        {/* FFT Graph */}
-        <div className="mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-opacity-60 dark:bg-opacity-60">
+        {/* FFT Graph - Enhanced */}
+        <div className="mb-8">
+          <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
             <div className="p-6">
-              <h5 className="text-xl font-bold mb-3 text-gray-900 dark:text-gray-100">FFT Amplitude Analysis</h5>
-              <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">{fftMeta}</div>
-              <div className="h-96">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-gradient-to-br from-emerald-500/20 to-blue-500/20 rounded-xl">
+                  <svg className="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h5 className="text-xl font-bold text-slate-900 dark:text-slate-100">FFT Amplitude Analysis</h5>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{fftMeta}</p>
+                </div>
+              </div>
+              <div className="h-96 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 p-4">
                 {fftData && (
                   <Line
                     data={{
@@ -919,8 +958,8 @@ function App() {
           </div>
         </div>
 
-        {/* Three Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* Three Charts - Enhanced Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <ParameterChart
             chartData={chart1Data}
             parameter={chart1Parameter}
@@ -972,41 +1011,85 @@ function App() {
           />
         )}
 
-        {/* Files Section */}
+        {/* Files Section - Enhanced */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+          {/* Recent Files */}
+          <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
             <div className="p-6">
-              <h5 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Recent Files</h5>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-500/10 rounded-xl">
+                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                </div>
+                <h5 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recent Files</h5>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
                 {files.slice(0, 10).map((file, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div>
-                      <div className="font-medium text-gray-900 dark:text-gray-100">{file.name}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{file.modified}</div>
+                  <div key={index} className="group flex justify-between items-center p-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl hover:bg-slate-100/80 dark:hover:bg-slate-800/50 transition-all duration-200 cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <div className="p-1.5 bg-emerald-500/10 rounded-lg group-hover:bg-emerald-500/20 transition-colors">
+                        <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="font-medium text-slate-900 dark:text-slate-100 text-sm">{file.name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{file.modified}</div>
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                       {formatSize(file.size)}
                     </div>
                   </div>
                 ))}
+                {files.length === 0 && (
+                  <div className="text-center py-8 text-slate-400">
+                    <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                    </svg>
+                    <p className="text-sm">No files yet</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+          {/* Activity Log */}
+          <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
             <div className="p-6">
-              <h5 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Activity Log</h5>
-              <div className="space-y-2">
-                <div className="p-3 bg-[#d8dad3] dark:bg-[#566246]/30 rounded-lg">
-                  <div className="text-sm text-[#566246] dark:text-[#d8dad3]">{latestActivity}</div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-purple-500/10 rounded-xl">
+                  <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-                <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">{nextExpected}</div>
-                </div>
-                <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Socket.IO: {socketConnected ? 'Connected' : 'Disconnected'}
+                <h5 className="text-lg font-bold text-slate-900 dark:text-slate-100">Activity Log</h5>
+              </div>
+              <div className="space-y-3">
+                <div className="p-4 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 rounded-xl border border-emerald-500/20">
+                  <div className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Latest Activity
                   </div>
+                  <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">{latestActivity}</div>
+                </div>
+                <div className="p-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl flex items-center gap-3">
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">{nextExpected}</div>
+                </div>
+                <div className="p-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span className="text-sm text-slate-600 dark:text-slate-400">Socket.IO</span>
+                  </div>
+                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${socketConnected ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                    {socketConnected ? 'Connected' : 'Disconnected'}
+                  </span>
                 </div>
               </div>
             </div>
