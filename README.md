@@ -1,22 +1,57 @@
-# Cloud Monitoring Service
+# Wilo Cloud Monitoring Service
 
 A real-time cloud monitoring dashboard for sensor data analysis with comprehensive statistical parameter calculation and visualization.
 
+## 🚀 Quick Start
+
+### Option 1: NPM (Recommended)
+```bash
+# Install all dependencies
+npm run install:all
+
+# Run both frontend and backend concurrently
+npm start
+```
+
+### Option 2: Windows Scripts
+```powershell
+# PowerShell
+.\start.ps1
+
+# Or Command Prompt
+start.bat
+```
+
+### Option 3: Manual
+```bash
+# Terminal 1 - Backend
+python app.py
+
+# Terminal 2 - Frontend  
+cd frontend && npm run dev
+```
+
+**Access the dashboard at:** http://localhost:5173
+
+---
+
 ## Features
 
-- **Three Independent Charts**: Simultaneous visualization of different statistical parameters
+- **Multiple Charts**: Simultaneous visualization of different statistical parameters
 - **Real-time Updates**: Live data streaming via Socket.IO
 - **Comprehensive Statistics**: 21+ statistical parameters including amplitude, health ratios, and distribution features
-- **Event Logging**: Manual failure event tracking with automatic slope analysis from failure to recovery
+- **Event Logging**: Manual failure event tracking with automatic slope analysis
 - **Modern UI**: React + TailwindCSS with dark/light theme support
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
 
 ## Architecture
 
-- **Backend**: Flask API with Socket.IO for real-time communication
-- **Frontend**: React + Vite + TailwindCSS
-- **Charts**: Chart.js with react-chartjs-2
-- **Data Processing**: NumPy + SciPy for statistical calculations
+| Component | Technology |
+|-----------|------------|
+| Backend | Flask + Socket.IO |
+| Frontend | React + Vite + TailwindCSS |
+| Charts | Chart.js + react-chartjs-2 |
+| Data Processing | NumPy + SciPy |
 
 ## Statistical Parameters
 
@@ -38,44 +73,49 @@ A real-time cloud monitoring dashboard for sensor data analysis with comprehensi
 
 ## Installation
 
+### Prerequisites
+- Python 3.8+
+- Node.js 18+
+
 ### Backend Setup
 ```bash
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
+# Create virtual environment (optional but recommended)
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+.\venv\Scripts\activate   # Windows
 
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 ```
 
 ### Frontend Setup
 ```bash
 cd frontend
-bun install  # or npm install
+npm install
 ```
 
-## Usage
-
-### Start Backend
+### Root Dependencies (for concurrent running)
 ```bash
-source venv/bin/activate
-python app.py
-# Runs on http://localhost:5001
+npm install
 ```
 
-### Start Frontend
+## NPM Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm start` | Run both servers concurrently |
+| `npm run dev` | Alias for `npm start` |
+| `npm run backend` | Run Flask backend only |
+| `npm run frontend` | Run Vite frontend only |
+| `npm run install:all` | Install all dependencies |
+
+## Generate Test Data
+
 ```bash
-cd frontend
-bun run dev  # or npm run dev
-# Runs on http://localhost:5173
+python generate_dummy_data.py
 ```
 
-### Production Build
-```bash
-cd frontend
-bun run build  # or npm run build
-# Creates optimized build in dist/
-```
+This creates sample sensor data in the `Data/` directory for testing.
 
 ## Data Format
 
@@ -129,8 +169,12 @@ The system automatically monitors the `Data/` directory for new CSV files matchi
 ### Project Structure
 ```
 ├── app.py                 # Flask backend API
+├── package.json          # Root package.json for concurrent running
+├── start.ps1             # PowerShell startup script
+├── start.bat             # Batch startup script
 ├── config.json           # Configuration settings
 ├── requirements.txt      # Python dependencies
+├── generate_dummy_data.py # Test data generator
 ├── frontend/             # React application
 │   ├── src/
 │   │   ├── App.jsx      # Main React component
@@ -138,6 +182,7 @@ The system automatically monitors the `Data/` directory for new CSV files matchi
 │   │   └── main.jsx     # React entry point
 │   └── package.json     # Frontend dependencies
 ├── Data/                # CSV data files (auto-created)
+├── Events/              # Event log files (auto-created)
 └── Server/              # Additional server utilities
 ```
 

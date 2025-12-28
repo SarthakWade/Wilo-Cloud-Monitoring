@@ -47,6 +47,13 @@ def calculate_statistics(z_values):
     if not z_values or len(z_values) == 0:
         return {}
     
+    def safe_float(val):
+        """Convert value to float, replacing NaN/Inf with 0."""
+        f = float(val)
+        if np.isnan(f) or np.isinf(f):
+            return 0.0
+        return f
+    
     z_array = np.array(z_values)
     
     # Basic Amplitude Statistics
@@ -85,33 +92,33 @@ def calculate_statistics(z_values):
     
     return {
         # Basic Amplitude Statistics
-        'max': float(max_val),
-        'min': float(min_val),
-        'mean': float(mean_val),
-        'abs_mean': float(abs_mean),
-        'rms': float(rms),
-        'variance': float(variance),
-        'std_dev': float(std_dev),
-        'peak': float(peak),
-        'peak_to_peak': float(peak_to_peak),
+        'max': safe_float(max_val),
+        'min': safe_float(min_val),
+        'mean': safe_float(mean_val),
+        'abs_mean': safe_float(abs_mean),
+        'rms': safe_float(rms),
+        'variance': safe_float(variance),
+        'std_dev': safe_float(std_dev),
+        'peak': safe_float(peak),
+        'peak_to_peak': safe_float(peak_to_peak),
         
         # Severity / Health Ratios
-        'crest_factor': float(crest_factor),
-        'impulse_factor': float(impulse_factor),
-        'shape_factor': float(shape_factor),
-        'clearance_factor': float(clearance_factor),
+        'crest_factor': safe_float(crest_factor),
+        'impulse_factor': safe_float(impulse_factor),
+        'shape_factor': safe_float(shape_factor),
+        'clearance_factor': safe_float(clearance_factor),
         
         # Distribution Shape Features
-        'skewness': float(skewness),
-        'kurtosis': float(kurtosis_val),
-        'excess_kurtosis': float(excess_kurtosis),
+        'skewness': safe_float(skewness),
+        'kurtosis': safe_float(kurtosis_val),
+        'excess_kurtosis': safe_float(excess_kurtosis),
         
         # Optional Extras
-        'energy': float(energy),
-        'zero_crossing_rate': float(zero_crossing_rate),
-        'percentile_90': float(percentile_90),
-        'percentile_95': float(percentile_95),
-        'percentile_99': float(percentile_99)
+        'energy': safe_float(energy),
+        'zero_crossing_rate': safe_float(zero_crossing_rate),
+        'percentile_90': safe_float(percentile_90),
+        'percentile_95': safe_float(percentile_95),
+        'percentile_99': safe_float(percentile_99)
     }
 
 class FileChangeHandler(FileSystemEventHandler):
@@ -203,11 +210,8 @@ def load_20_day_data():
     z_values = []
     files_processed = 0
     
-    # Process files from the last 20 days, limit to ~240 data points
+    # Process files from the last 20 days
     for file_path in max_reading_files:
-        if files_processed >= 240:  # Limit total data points
-            break
-            
         # Check if file is within 20 days
         file_mtime = dt.datetime.fromtimestamp(os.path.getmtime(file_path))
         if file_mtime < twenty_days_ago:
@@ -216,7 +220,6 @@ def load_20_day_data():
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
-                file_data = []
                 
                 for row in reader:
                     try:
@@ -236,19 +239,13 @@ def load_20_day_data():
                         else:
                             continue
                             
-                        file_data.append((timestamp, z_value))
+                        timestamps.append(timestamp)
+                        z_values.append(z_value)
                         
                     except (ValueError, KeyError):
                         continue
                 
-                # Take max value from each file (representing 2-hour max)
-                if file_data:
-                    # Sort by timestamp and take the maximum value from this file
-                    file_data.sort(key=lambda x: x[0])
-                    max_entry = max(file_data, key=lambda x: abs(x[1]))  # Max absolute value
-                    timestamps.append(max_entry[0])
-                    z_values.append(max_entry[1])
-                    files_processed += 1
+                files_processed += 1
                     
         except Exception as e:
             print(f"Error processing file {file_path}: {e}")
@@ -261,7 +258,12 @@ def load_20_day_data():
         timestamps, z_values = zip(*combined)
         timestamps, z_values = list(timestamps), list(z_values)
     
-    return timestamps, z_values, f"Processed {files_processed} files over 20 days"
+    # Limit to last 500 points for performance
+    if len(timestamps) > 500:
+        timestamps = timestamps[-500:]
+        z_values = z_values[-500:]
+    
+    return timestamps, z_values, f"Processed {files_processed} files with {len(timestamps)} data points"
 
 @app.route('/chart-data')
 def get_chart_data():
@@ -296,7 +298,7 @@ def get_chart_data():
         stats_data = calculate_statistics(z_values)
         
         return jsonify({
-            'filename': filename,
+            'filename': '20-day aggregated data',
             'timestamps': timestamps,
             'z_values': z_values,
             'count': len(timestamps),
@@ -462,7 +464,7 @@ if __name__ == '__main__':
     try:
         # Run the Flask app on all network interfaces
         print(' * Starting Flask application...')
-        socketio.run(app, host='0.0.0.0', port=5001, debug=True)
+        socketio.run(app, host='0.0.0.0', port=5001, debug=True, allow_unsafe_werkzeug=True)
     finally:
         observer.stop()
         observer.join()

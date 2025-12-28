@@ -45,7 +45,11 @@ data.append((datetime.datetime(2025, 11, 27, 14, 0, 0).isoformat(), 2.456789))
 data.append((datetime.datetime(2025, 11, 27, 15, 0, 0).isoformat(), 2.234567))
 
 # Write to CSV
-output_file = '/Users/adityagarud/Developer/Wilo-Cloud-Monitoring/Data/max_reading_dummy.csv'
+import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'Data')
+os.makedirs(DATA_DIR, exist_ok=True)
+output_file = os.path.join(DATA_DIR, 'max_reading_dummy.csv')
 with open(output_file, 'w', newline='', encoding='utf-8') as f:
     writer = csv.writer(f)
     writer.writerow(['timestamp', 'value'])
