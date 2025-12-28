@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* Import Google Font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
 
 /* Theme variables - Enhanced Palette */
 :root[data-theme="light"] {
@@ -36,7 +36,8 @@
 
 /* Base Styles */
 * {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
 }
 
 body {
@@ -49,15 +50,22 @@ body {
 
 /* Animated Background */
 body::before {
-  content: '';
+  content: "";
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: 
-    radial-gradient(ellipse 80% 50% at 20% -20%, var(--glow-color), transparent),
-    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(59, 130, 246, 0.1), transparent),
+  background: radial-gradient(
+      ellipse 80% 50% at 20% -20%,
+      var(--glow-color),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 80% 100%,
+      rgba(59, 130, 246, 0.1),
+      transparent
+    ),
     radial-gradient(ellipse 50% 50% at 50% 50%, transparent, transparent);
   pointer-events: none;
   z-index: -1;
@@ -65,14 +73,13 @@ body::before {
 
 /* Grid Pattern Overlay */
 body::after {
-  content: '';
+  content: "";
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: 
-    linear-gradient(var(--card-border) 1px, transparent 1px),
+  background-image: linear-gradient(var(--card-border) 1px, transparent 1px),
     linear-gradient(90deg, var(--card-border) 1px, transparent 1px);
   background-size: 60px 60px;
   opacity: 0.3;
@@ -82,15 +89,15 @@ body::after {
 
 /* Glass Card - Enhanced */
 .glass-card {
-  background: linear-gradient(135deg, 
+  background: linear-gradient(
+    135deg,
     color-mix(in oklab, var(--card-bg) 80%, transparent),
     color-mix(in oklab, var(--card-bg) 60%, transparent)
   );
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--card-border);
-  box-shadow: 
-    0 4px 24px var(--shadow-color),
+  box-shadow: 0 4px 24px var(--shadow-color),
     0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   border-radius: 16px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -98,19 +105,25 @@ body::after {
 
 .glass-card:hover {
   transform: translateY(-2px);
-  box-shadow: 
-    0 8px 40px var(--shadow-color),
-    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-    0 0 60px -10px var(--glow-color);
+  box-shadow: 0 8px 40px var(--shadow-color),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset, 0 0 60px -10px var(--glow-color);
 }
 
 /* Primary Gradient */
 .gradient-primary {
-  background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
+  background: linear-gradient(
+    135deg,
+    var(--accent-gradient-start),
+    var(--accent-gradient-end)
+  );
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
+  background: linear-gradient(
+    135deg,
+    var(--accent-gradient-start),
+    var(--accent-gradient-end)
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -126,7 +139,7 @@ body::after {
 }
 
 .status-dot::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: 50%;
@@ -155,8 +168,15 @@ body::after {
 }
 
 @keyframes status-ping {
-  0% { transform: scale(1); opacity: 0.8; }
-  75%, 100% { transform: scale(2); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
 }
 
 /* File Card - Enhanced */
@@ -168,13 +188,18 @@ body::after {
 }
 
 .file-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
   transition: left 0.5s ease;
 }
 
@@ -193,13 +218,21 @@ body::after {
 }
 
 @keyframes highlight {
-  0% { background-color: rgba(16, 185, 129, 0.3); }
-  100% { background-color: transparent; }
+  0% {
+    background-color: rgba(16, 185, 129, 0.3);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 
 /* Recent File Strip */
 .recent-strip {
-  background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
+  background: linear-gradient(
+    135deg,
+    var(--accent-gradient-start),
+    var(--accent-gradient-end)
+  );
   color: white;
   display: block;
   padding: 8px 16px;
@@ -220,7 +253,11 @@ body::after {
 
 /* Button Styles */
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
+  background: linear-gradient(
+    135deg,
+    var(--accent-gradient-start),
+    var(--accent-gradient-end)
+  );
   color: white;
   font-weight: 600;
   padding: 12px 24px;
@@ -233,13 +270,18 @@ body::after {
 }
 
 .btn-primary::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
   transition: left 0.5s ease;
 }
 
@@ -258,7 +300,8 @@ body::after {
 
 /* Chart Container */
 .chart-container {
-  background: linear-gradient(180deg, 
+  background: linear-gradient(
+    180deg,
     color-mix(in oklab, var(--card-bg) 100%, transparent) 0%,
     color-mix(in oklab, var(--card-bg) 95%, var(--accent) 5%) 100%
   );
@@ -314,9 +357,10 @@ body::after {
 
 /* Loading Skeleton */
 .skeleton {
-  background: linear-gradient(90deg, 
-    var(--card-border) 0%, 
-    color-mix(in oklab, var(--card-bg) 80%, transparent) 50%, 
+  background: linear-gradient(
+    90deg,
+    var(--card-border) 0%,
+    color-mix(in oklab, var(--card-bg) 80%, transparent) 50%,
     var(--card-border) 100%
   );
   background-size: 200% 100%;
@@ -325,8 +369,12 @@ body::after {
 }
 
 @keyframes skeleton-loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* Stat Card Number */
@@ -421,7 +469,44 @@ body::after {
   opacity: 0;
 }
 
-.stagger-children > *:nth-child(1) { animation-delay: 0.1s; }
-.stagger-children > *:nth-child(2) { animation-delay: 0.2s; }
-.stagger-children > *:nth-child(3) { animation-delay: 0.3s; }
-.stagger-children > *:nth-child(4) { animation-delay: 0.4s; }
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0.1s;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+/* Modal Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

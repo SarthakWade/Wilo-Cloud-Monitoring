@@ -317,11 +317,113 @@ def get_chart_data():
 def get_parameter_data(parameter):
     """Get time-series data for a specific statistical parameter."""
     try:
+        # Get optional date range and timestamp parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        start_time = request.args.get('start_time')
+        end_time = request.args.get('end_time')
+        
         # Load 20-day aggregated data
         timestamps, z_values, status_msg = load_20_day_data()
         
         if not timestamps:
             return jsonify({'error': 'No data available for the last 20 days'}), 404
+        
+        # Filter by date range if provided
+        if start_date or end_date:
+            import datetime as dt
+            filtered_timestamps = []
+            filtered_z_values = []
+            
+            for i, timestamp in enumerate(timestamps):
+                # Convert timestamp (milliseconds) to datetime
+                dt_obj = dt.datetime.fromtimestamp(timestamp / 1000)
+                
+                # Check if within range
+                if start_date:
+                    start_dt = dt.datetime.fromisoformat(start_date)
+                    if dt_obj < start_dt:
+                        continue
+                
+                if end_date:
+                    end_dt = dt.datetime.fromisoformat(end_date)
+                    # Set to end of day
+                    end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                    if dt_obj > end_dt:
+                        continue
+                
+                filtered_timestamps.append(timestamp)
+                filtered_z_values.append(z_values[i])
+            
+            timestamps = filtered_timestamps
+            z_values = filtered_z_values
+            
+            if not timestamps:
+                return jsonify({'error': 'No data available for the selected date range'}), 404
+        
+        # Filter by timestamp (full datetime) if provided
+        if start_time or end_time:
+            import datetime as dt
+            filtered_timestamps = []
+            filtered_z_values = []
+            
+            for i, timestamp in enumerate(timestamps):
+                # Convert timestamp (milliseconds) to datetime
+                dt_obj = dt.datetime.fromtimestamp(timestamp / 1000)
+                
+                # Check if within timestamp range (full datetime comparison)
+                if start_time:
+                    start_time_dt = dt.datetime.fromisoformat(start_time)
+                    if dt_obj < start_time_dt:
+                        continue
+                
+                if end_time:
+                    end_time_dt = dt.datetime.fromisoformat(end_time)
+                    if dt_obj > end_time_dt:
+                        continue
+                
+                filtered_timestamps.append(timestamp)
+                filtered_z_values.append(z_values[i])
+            
+            timestamps = filtered_timestamps
+            z_values = filtered_z_values
+            
+            if not timestamps:
+                return jsonify({'error': 'No data available for the selected time range'}), 404
+        
+        # Filter by time-of-day only (across all dates) if provided
+        time_start = request.args.get('time_start')
+        time_end = request.args.get('time_end')
+        
+        if time_start or time_end:
+            import datetime as dt
+            filtered_timestamps = []
+            filtered_z_values = []
+            
+            for i, timestamp in enumerate(timestamps):
+                # Convert timestamp (milliseconds) to datetime
+                dt_obj = dt.datetime.fromtimestamp(timestamp / 1000)
+                dt_time = dt_obj.time()
+                
+                # Check if within time-of-day range
+                if time_start:
+                    start_t = dt.datetime.strptime(time_start, '%H:%M').time()
+                    if dt_time < start_t:
+                        continue
+                
+                if time_end:
+                    end_t = dt.datetime.strptime(time_end, '%H:%M').time()
+                    if dt_time > end_t:
+                        continue
+                
+                filtered_timestamps.append(timestamp)
+                filtered_z_values.append(z_values[i])
+            
+            timestamps = filtered_timestamps
+            z_values = filtered_z_values
+            
+            if not timestamps:
+                return jsonify({'error': 'No data available for the selected time range'}), 404
         
         # Calculate statistical parameters
         stats_data = calculate_statistics(z_values)

@@ -75,6 +75,152 @@ const OPTION_COLORS = [
   '#6366f1', // Indigo
 ];
 
+// CSV Export utility functions
+const exportToCSV = (chartData, filename, parameterLabel) => {
+  if (!chartData || !chartData.labels || !chartData.datasets || chartData.datasets.length === 0) {
+    alert('No data available to export');
+    return;
+  }
+
+  const { labels, datasets } = chartData;
+  const data = datasets[0].data;
+
+  // Create CSV content
+  let csvContent = 'Timestamp,Value\n';
+  
+  labels.forEach((timestamp, index) => {
+    // Convert timestamp to readable format
+    const date = new Date(timestamp);
+    const dateStr = date.toISOString();
+    csvContent += `${dateStr},${data[index]}\n`;
+  });
+
+  // Create blob and download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const exportAllChartsToCSV = async (config1, config2, config3, startDate, endDate, timeDate, startTime, endTime) => {
+  const allOptions = [
+    ...BASIC_STATS_OPTIONS,
+    ...HEALTH_RATIOS_OPTIONS,
+    ...DISTRIBUTION_OPTIONS
+  ];
+
+  try {
+    // Build query string with date range and timestamp filter if provided
+    let baseUrl = `${API_BASE_URL}/parameter-data/`;
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+    // Add timestamp filter
+    if (startTime || endTime) {
+      if (timeDate) {
+        // If date is specified, filter by full datetime
+        if (startTime) params.append('start_time', `${timeDate}T${startTime}`);
+        if (endTime) params.append('end_time', `${timeDate}T${endTime}`);
+      } else {
+        // If no date specified, filter by time-of-day only
+        if (startTime) params.append('time_start', startTime);
+        if (endTime) params.append('time_end', endTime);
+      }
+    }
+    
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+
+    // Show loading message
+    const originalButton = event?.target;
+    if (originalButton) {
+      originalButton.disabled = true;
+      originalButton.textContent = 'Exporting...';
+    }
+
+    // Fetch data for all parameters
+    const dataPromises = allOptions.map(async (option) => {
+      try {
+        const response = await fetch(`${baseUrl}${option.value}${queryString}`);
+        const data = await response.json();
+        return {
+          parameter: option.value,
+          label: option.label,
+          timestamps: data.timestamps || [],
+          values: data.parameter_values || data.z_values || []
+        };
+      } catch (error) {
+        console.error(`Error fetching ${option.value}:`, error);
+        return null;
+      }
+    });
+
+    const allData = await Promise.all(dataPromises);
+    const validData = allData.filter(d => d !== null && d.timestamps.length > 0);
+
+    if (validData.length === 0) {
+      alert('No data available to export');
+      return;
+    }
+
+    // Find the maximum number of data points
+    const maxLength = Math.max(...validData.map(d => d.timestamps.length));
+
+    // Build CSV header
+    let csvHeader = 'Timestamp';
+    validData.forEach(d => {
+      csvHeader += `,${d.label}`;
+    });
+    csvHeader += '\n';
+
+    // Build CSV rows
+    let csvRows = '';
+    for (let i = 0; i < maxLength; i++) {
+      // Use the timestamp from the first available dataset
+      const timestamp = validData[0].timestamps[i];
+      const dateStr = timestamp ? new Date(timestamp).toISOString() : '';
+      
+      let row = dateStr;
+      validData.forEach(d => {
+        const value = d.values[i] ?? '';
+        row += `,${value}`;
+      });
+      csvRows += row + '\n';
+    }
+
+    const csvContent = csvHeader + csvRows;
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.setAttribute('href', url);
+    link.setAttribute('download', `all_parameters_data_${dateStr}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Reset button
+    if (originalButton) {
+      originalButton.disabled = false;
+      originalButton.innerHTML = originalButton.getAttribute('data-original-text');
+    }
+
+  } catch (error) {
+    console.error('Error exporting all charts:', error);
+    alert('Error exporting data. Please try again.');
+  }
+};
+
 // Chart colors for different themes - Modern Gradient Palette
 const getChartColors = (theme, chartIndex) => {
   const isDark = theme === 'dark';
@@ -240,8 +386,29 @@ const GraphModal = ({ isOpen, onClose, chartData, parameter, title, theme, optio
               ))}
             </select>
           </div>
-          <div className="flex-1 min-h-0">
-            <Line data={data} options={chartOptions} />
+          <div className="flex-1 min-h-0 mb-4">
+            <Line 
+              key={`modal-${parameter}-${chartData?.datasets?.[0]?.data?.length || 0}`}
+              data={data} 
+              options={chartOptions} 
+            />
+          </div>
+          {/* Export CSV Button - Below Graph */}
+          <div className="flex justify-start">
+            <button
+              onClick={() => {
+                const parameterLabel = options.find(opt => opt.value === parameter)?.label || parameter;
+                const dateStr = new Date().toISOString().split('T')[0];
+                exportToCSV(chartData, `${parameter}_${dateStr}.csv`, parameterLabel);
+              }}
+              className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-all duration-200 flex items-center gap-2 font-medium shadow-lg hover:shadow-xl hover:scale-105"
+              aria-label="Export data as CSV"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export CSV
+            </button>
           </div>
         </div>
       </div>
@@ -387,13 +554,43 @@ const ParameterChart = ({
         </div>
         <div className="text-xs text-slate-500 dark:text-slate-400 mb-3">{meta}</div>
         <div
-          className="h-72 cursor-pointer rounded-xl bg-slate-50/50 dark:bg-slate-900/30 p-3 transition-all duration-200 hover:bg-slate-100/50 dark:hover:bg-slate-900/50"
+          className="h-72 cursor-pointer rounded-xl bg-slate-50/50 dark:bg-slate-900/30 p-3 transition-all duration-200 hover:bg-slate-100/50 dark:hover:bg-slate-900/50 flex items-center justify-center"
           onClick={onExpand}
           role="button"
           tabIndex={0}
           onKeyPress={(e) => e.key === 'Enter' && onExpand()}
         >
-          <Line data={data} options={chartOptions} />
+          {chartData && chartData.datasets && chartData.datasets[0].data.length > 0 ? (
+            <Line 
+              key={`${parameter}-${chartData.datasets[0].data.length}`}
+              data={data} 
+              options={chartOptions} 
+            />
+          ) : (
+            <div className="text-center py-12">
+              <svg className="w-16 h-16 mx-auto text-slate-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <p className="text-lg font-semibold text-slate-600 dark:text-slate-400 mb-2">No Data Available</p>
+              <p className="text-sm text-slate-500 dark:text-slate-500">Please adjust your date filter or check data availability</p>
+            </div>
+          )}
+        </div>
+        <div className="mt-4">
+          <button
+            onClick={() => {
+              const parameterLabel = options.find(opt => opt.value === parameter)?.label || parameter;
+              const dateStr = new Date().toISOString().split('T')[0];
+              exportToCSV(chartData, `${parameter}_${dateStr}.csv`, parameterLabel);
+            }}
+            className="w-full px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium shadow-sm hover:shadow-md"
+            aria-label="Export data as CSV"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Export CSV
+          </button>
         </div>
       </div>
     </div>
@@ -439,8 +636,81 @@ function App() {
   // Modal state
   const [expandedChartIndex, setExpandedChartIndex] = useState(null);
 
+  // Date range filter state
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Timestamp filter state
+  const [timeDate, setTimeDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+
+  // Confirmation modal state
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModalData, setConfirmModalData] = useState({
+    title: '',
+    message: '',
+    onConfirm: null
+  });
+
   const socketRef = useRef(null);
   const countdownTimerRef = useRef(null);
+
+  // Helper functions for filter mutual exclusivity
+  const handleDateFilterChange = (field, value) => {
+    // Check if time filter is active
+    const timeFilterActive = startTime || endTime;
+    
+    if (timeFilterActive && value) {
+      setConfirmModalData({
+        title: 'Time Filter Active',
+        message: 'A time filter is currently active. Applying the date filter will clear the time filter. Do you want to continue?',
+        onConfirm: () => {
+          // Clear time filter
+          setStartTime('');
+          setEndTime('');
+          setTimeDate('');
+          // Apply date filter
+          if (field === 'startDate') setStartDate(value);
+          if (field === 'endDate') setEndDate(value);
+          setShowConfirmModal(false);
+        }
+      });
+      setShowConfirmModal(true);
+    } else {
+      // No conflict, apply normally
+      if (field === 'startDate') setStartDate(value);
+      if (field === 'endDate') setEndDate(value);
+    }
+  };
+
+  const handleTimeFilterChange = (field, value) => {
+    // Check if date filter is active
+    const dateFilterActive = startDate || endDate;
+    
+    if (dateFilterActive && value) {
+      setConfirmModalData({
+        title: 'Date Range Filter Active',
+        message: 'A date range filter is currently active. Applying the time filter will clear the date range filter. Do you want to continue?',
+        onConfirm: () => {
+          // Clear date filter
+          setStartDate('');
+          setEndDate('');
+          // Apply time filter
+          if (field === 'timeDate') setTimeDate(value);
+          if (field === 'startTime') setStartTime(value);
+          if (field === 'endTime') setEndTime(value);
+          setShowConfirmModal(false);
+        }
+      });
+      setShowConfirmModal(true);
+    } else {
+      // No conflict, apply normally
+      if (field === 'timeDate') setTimeDate(value);
+      if (field === 'startTime') setStartTime(value);
+      if (field === 'endTime') setEndTime(value);
+    }
+  };
 
   // Load event names from backend
   useEffect(() => {
@@ -510,7 +780,28 @@ function App() {
     setFftMeta('Loading FFT data...');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/parameter-data/raw_z`);
+      // Build query string with date range and time filter if provided
+      let url = `${API_BASE_URL}/parameter-data/raw_z`;
+      const params = new URLSearchParams();
+      if (startDate) params.append('start_date', startDate);
+      if (endDate) params.append('end_date', endDate);
+      
+      // Add timestamp filter
+      if (startTime || endTime) {
+        if (timeDate) {
+          // If date is specified, filter by full datetime
+          if (startTime) params.append('start_time', `${timeDate}T${startTime}`);
+          if (endTime) params.append('end_time', `${timeDate}T${endTime}`);
+        } else {
+          // If no date specified, filter by time-of-day only
+          if (startTime) params.append('time_start', startTime);
+          if (endTime) params.append('time_end', endTime);
+        }
+      }
+      
+      if (params.toString()) url += `?${params.toString()}`;
+
+      const response = await fetch(url);
       const data = await response.json();
 
       if (data.error) {
@@ -550,6 +841,8 @@ function App() {
 
     } catch (error) {
       console.error('Error loading FFT data:', error);
+      // Clear the chart data to prevent showing stale data
+      setFftData(null);
       setFftMeta(`Error: ${error.message}`);
     }
   };
@@ -562,7 +855,31 @@ function App() {
     setMeta('Loading chart data...');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/parameter-data/${parameter}`);
+      // Build query string with date range and time filter if provided
+      let url = `${API_BASE_URL}/parameter-data/${parameter}`;
+      const params = new URLSearchParams();
+      if (startDate) params.append('start_date', startDate);
+      if (endDate) params.append('end_date', endDate);
+      
+      // Add timestamp filter
+      if (startTime || endTime) {
+        if (timeDate) {
+          // If date is specified, filter by full datetime
+          console.log(`Time filter with date: Date=${timeDate}, Start=${startTime}, End=${endTime}`);
+          if (startTime) params.append('start_time', `${timeDate}T${startTime}`);
+          if (endTime) params.append('end_time', `${timeDate}T${endTime}`);
+        } else {
+          // If no date specified, filter by time-of-day only
+          console.log(`Time filter (time-of-day only): Start=${startTime}, End=${endTime}`);
+          if (startTime) params.append('time_start', startTime);
+          if (endTime) params.append('time_end', endTime);
+        }
+      }
+      
+      if (params.toString()) url += `?${params.toString()}`;
+      
+      console.log(`Fetching chart data from: ${url}`);
+      const response = await fetch(url);
       const data = await response.json();
 
       if (data.error) {
@@ -587,6 +904,8 @@ function App() {
 
     } catch (error) {
       console.error('Error loading chart data:', error);
+      // Clear the chart data to prevent showing stale data
+      setData(null);
       setMeta(`Error: ${error.message}`);
     }
   };
@@ -684,18 +1003,23 @@ function App() {
       });
   }, []);
 
-  // Load chart data when parameters change
+  // Load chart data when parameters or date range or time filter change
   useEffect(() => {
     loadChartData(1, chart1Parameter);
-  }, [chart1Parameter]);
+  }, [chart1Parameter, startDate, endDate, timeDate, startTime, endTime]);
 
   useEffect(() => {
     loadChartData(2, chart2Parameter);
-  }, [chart2Parameter]);
+  }, [chart2Parameter, startDate, endDate, timeDate, startTime, endTime]);
 
   useEffect(() => {
     loadChartData(3, chart3Parameter);
-  }, [chart3Parameter]);
+  }, [chart3Parameter, startDate, endDate, timeDate, startTime, endTime]);
+
+  // Load FFT data when date range or time filter changes
+  useEffect(() => {
+    loadFftData();
+  }, [startDate, endDate, timeDate, startTime, endTime]);
 
   const updateSystemStatus = () => {
     if (socketConnected) {
@@ -810,6 +1134,144 @@ function App() {
           </div>
         </div>
 
+        {/* Date Range Filter */}
+        <div className="mb-6 bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 p-6">
+          <h6 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4 uppercase tracking-wide flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Date Range Filter
+          </h6>
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">
+                  From Date
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => handleDateFilterChange('startDate', e.target.value)}
+                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-slate-100 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">
+                  To Date
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => handleDateFilterChange('endDate', e.target.value)}
+                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-slate-100 transition-all duration-200"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Timestamp Filter */}
+        <div className="mb-6 bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 p-6">
+          <h6 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4 uppercase tracking-wide flex items-center gap-2">
+            <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Time Filter
+          </h6>
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">
+                  Date {!timeDate && <span className="text-amber-500 text-xs">(optional - leave empty for time-of-day filter)</span>}
+                </label>
+                <input
+                  type="date"
+                  value={timeDate}
+                  onChange={(e) => handleTimeFilterChange('timeDate', e.target.value)}
+                  placeholder="Current date"
+                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-slate-100 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">
+                  Start Time
+                </label>
+                <input
+                  key={`start-time-${startTime}`}
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => handleTimeFilterChange('startTime', e.target.value)}
+                  onBlur={(e) => {
+                    const value = e.target.value;
+                    if (value && !value.includes(':')) {
+                      // If only hour is entered (e.g., "11"), add ":00"
+                      const hour = value.padStart(2, '0');
+                      handleTimeFilterChange('startTime', `${hour}:00`);
+                    }
+                  }}
+                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-slate-100 transition-all duration-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">
+                  End Time
+                </label>
+                <input
+                  key={`end-time-${endTime}`}
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => handleTimeFilterChange('endTime', e.target.value)}
+                  onBlur={(e) => {
+                    const value = e.target.value;
+                    if (value && !value.includes(':')) {
+                      // If only hour is entered (e.g., "13"), add ":00"
+                      const hour = value.padStart(2, '0');
+                      handleTimeFilterChange('endTime', `${hour}:00`);
+                    }
+                  }}
+                  className="w-full px-4 py-3 border border-slate-300/50 dark:border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-slate-100 transition-all duration-200"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Actions & Export */}
+        <div className="mb-8 flex flex-col sm:flex-row gap-4 items-start">
+          <button
+            onClick={() => {
+              console.log('Clearing all filters...');
+              setStartDate('');
+              setEndDate('');
+              setTimeDate('');
+              setStartTime('');
+              setEndTime('');
+              console.log('All filters cleared!');
+            }}
+            className="px-6 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold rounded-xl transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Clear All Filters
+          </button>
+          
+          <button
+            onClick={() => exportAllChartsToCSV(chartsConfig[0], chartsConfig[1], chartsConfig[2], startDate, endDate, timeDate, startTime, endTime)}
+            className="group px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold rounded-xl shadow-lg hover:shadow-purple-500/50 transition-all duration-300 flex items-center gap-3 hover:-translate-y-0.5 hover:scale-105"
+          >
+            <svg className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>Export All Parameters</span>
+            {(startDate || endDate || startTime || endTime) && (
+              <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-lg text-xs font-normal">
+                (filtered)
+              </span>
+            )}
+          </button>
+        </div>
+
         {/* Create Event Section - Enhanced */}
         <div className="mb-8 flex flex-col sm:flex-row gap-4 items-start sm:items-end justify-between bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl p-6 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
           <div className="flex-1 max-w-md">
@@ -868,6 +1330,7 @@ function App() {
               <div className="h-96 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 p-4">
                 {fftData && (
                   <Line
+                    key={`fft-${fftData?.datasets?.[0]?.data?.length || 0}`}
                     data={{
                       ...fftData,
                       datasets: fftData.datasets.map(dataset => ({
@@ -1232,6 +1695,50 @@ function App() {
                   className={`w-full px-6 py-3 bg-gradient-to-r from-[#566246] to-[#a4c2a5] hover:from-[#4a4a48] hover:to-[#8ba68c] text-[#f1f2eb] font-semibold rounded-lg shadow-lg transition-all duration-200 ${eventSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {eventSubmitting ? 'Creating...' : (selectedExistingEvent ? 'Log Event' : 'Create Event')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Modal */}
+        {showConfirmModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full transform animate-slideUp border border-slate-200 dark:border-slate-700">
+              {/* Header */}
+              <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-amber-500/10 rounded-xl">
+                    <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                    {confirmModalData.title}
+                  </h3>
+                </div>
+              </div>
+              
+              {/* Content */}
+              <div className="p-6">
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                  {confirmModalData.message}
+                </p>
+              </div>
+              
+              {/* Actions */}
+              <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-b-2xl flex gap-3">
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="flex-1 px-4 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold rounded-xl transition-all duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmModalData.onConfirm}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-amber-500/25 transition-all duration-200"
+                >
+                  Continue
                 </button>
               </div>
             </div>
