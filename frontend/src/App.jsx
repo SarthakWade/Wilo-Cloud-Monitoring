@@ -629,8 +629,11 @@ function App() {
   const [showEventModal, setShowEventModal] = useState(false);
   const [eventTime, setEventTime] = useState('');
   const [eventName, setEventName] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
   const [selectedExistingEvent, setSelectedExistingEvent] = useState('');
   const [eventHistory, setEventHistory] = useState([]);
+  const [eventLogs, setEventLogs] = useState([]);
+  const [showAllEventsModal, setShowAllEventsModal] = useState(false);
   const [eventSubmitting, setEventSubmitting] = useState(false);
 
   // Modal state
@@ -712,8 +715,9 @@ function App() {
     }
   };
 
-  // Load event names from backend
+  // Load event names and logs from backend
   useEffect(() => {
+    // Load unqiue names for dropdown
     fetch(`${API_BASE_URL}/event-names`)
       .then(response => response.json())
       .then(data => {
@@ -723,6 +727,18 @@ function App() {
       })
       .catch(error => {
         console.error('Error loading event names:', error);
+      });
+
+    // Load full event logs
+    fetch(`${API_BASE_URL}/events`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.events) {
+          setEventLogs(data.events);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading event logs:', error);
       });
   }, []);
 
@@ -1276,6 +1292,113 @@ function App() {
           </button>
         </div>
 
+        {/* Event Logs Section - Enhanced */}
+        <div className="mb-8">
+          <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-xl">
+                    <svg className="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                  </div>
+                  <h5 className="text-xl font-bold text-slate-900 dark:text-slate-100">Event History Logs</h5>
+                </div>
+                {eventLogs.length > 3 && (
+                  <button
+                    onClick={() => setShowAllEventsModal(true)}
+                    className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+                  >
+                    View All ({eventLogs.length})
+                  </button>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {eventLogs.length > 0 ? (
+                  eventLogs.slice(0, 3).map((event, idx) => (
+                    <div 
+                      key={idx}
+                      className="group p-4 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-200/50 dark:border-slate-700/50 hover:bg-white dark:hover:bg-slate-800 hover:shadow-md transition-all duration-200 cursor-pointer"
+                      onClick={() => {
+                        setConfirmModalData({
+                          title: 'Download Event Data',
+                          message: (
+                            <div className="space-y-3">
+                              <div className="p-3 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
+                                <p className="font-bold text-slate-800 dark:text-slate-200 mb-1">{event.event_name}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">ID: {event.event_id}</p>
+                                <p className="text-sm text-slate-600 dark:text-slate-300">
+                                  <span className="font-semibold">Logged:</span> {new Date(event.created_at).toLocaleString()}
+                                </p>
+                                {event.description && (
+                                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 italic">
+                                    "{event.description}"
+                                  </p>
+                                )}
+                              </div>
+                              <p className="text-sm text-slate-600 dark:text-slate-400">
+                                Choose which data file you would like to download for this event.
+                              </p>
+                              <div className="flex flex-col gap-2 mt-2">
+                                <button
+                                  onClick={() => {
+                                    window.open(`${API_BASE_URL}/download-event/${event.event_id}`, '_blank');
+                                    setShowConfirmModal(false);
+                                  }}
+                                  className="w-full px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  Download Slope Analysis CSV
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    window.open(`${API_BASE_URL}/download-source/${event.event_id}`, '_blank');
+                                    setShowConfirmModal(false);
+                                  }}
+                                  className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  Download Source Data CSV
+                                </button>
+                              </div>
+                            </div>
+                          ),
+                          onConfirm: () => setShowConfirmModal(false) 
+                        });
+                        setShowConfirmModal(true);
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                          {event.event_name.charAt(0).toUpperCase()}
+                        </span>
+                        <svg className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      </div>
+                      <h6 className="font-semibold text-slate-800 dark:text-slate-200 truncate">{event.event_name}</h6>
+                      <div className="flex justify-between items-center mt-1">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(event.created_at).toLocaleDateString()}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(event.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-8 text-slate-400 dark:text-slate-500">
+                    <p>No event logs found</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Create Event Section - Enhanced */}
         <div className="mb-8 flex flex-col sm:flex-row gap-4 items-start sm:items-end justify-between bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl p-6 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
           <div className="flex-1 max-w-md">
@@ -1571,6 +1694,7 @@ function App() {
               setShowEventModal(false);
               setEventTime('');
               setEventName('');
+              setEventDescription('');
               setSelectedExistingEvent('');
             }}
           >
@@ -1584,6 +1708,7 @@ function App() {
                   setShowEventModal(false);
                   setEventTime('');
                   setEventName('');
+                  setEventDescription('');
                   setSelectedExistingEvent('');
                 }}
                 className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 group"
@@ -1641,6 +1766,19 @@ function App() {
                   </div>
                 )}
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    value={eventDescription}
+                    onChange={(e) => setEventDescription(e.target.value)}
+                    placeholder="Enter additional details about the event..."
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
+                  />
+                </div>
+
                 <button
                   onClick={async () => {
                     const finalEventName = selectedExistingEvent || eventName;
@@ -1663,7 +1801,8 @@ function App() {
                         },
                         body: JSON.stringify({
                           event_name: finalEventName,
-                          failure_time_iso: failureTimeISO
+                          failure_time_iso: failureTimeISO,
+                          description: eventDescription
                         })
                       });
 
@@ -1675,16 +1814,24 @@ function App() {
 
                       alert(`Event "${finalEventName}" successfully logged!\n\nEvent ID: ${data.event_id}\nTime Before Failure: ${Math.abs(data.metadata.time_before_failure_seconds).toFixed(2)} seconds\nData Points Tracked: ${data.metadata.total_data_points}\n\nAnalyzing slopes from ${Math.abs(data.metadata.time_before_failure_seconds).toFixed(2)}s before failure back to baseline.`);
 
-                      // Refresh event names list
+                      // Refresh event names list (dropdown)
                       const namesResponse = await fetch(`${API_BASE_URL}/event-names`);
                       const namesData = await namesResponse.json();
                       if (namesData.event_names) {
                         setEventHistory(namesData.event_names);
                       }
 
+                      // Refresh event logs (list)
+                      const logsResponse = await fetch(`${API_BASE_URL}/events`);
+                      const logsData = await logsResponse.json();
+                      if (logsData.events) {
+                        setEventLogs(logsData.events);
+                      }
+
                       // Reset form
                       setEventTime('');
                       setEventName('');
+                      setEventDescription('');
                       setSelectedExistingEvent('');
                       setShowEventModal(false);
 
@@ -1744,6 +1891,107 @@ function App() {
                 >
                   Continue
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* All Events Modal */}
+        {showAllEventsModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm p-4"
+            onClick={() => setShowAllEventsModal(false)}
+          >
+            <div
+              className="relative w-full max-w-4xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800 rounded-t-2xl z-10">
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">All Event Logs</h3>
+                <button
+                  onClick={() => setShowAllEventsModal(false)}
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {eventLogs.map((event, idx) => (
+                    <div 
+                      key={idx}
+                      className="group p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                      onClick={() => {
+                        setConfirmModalData({
+                          title: 'Download Event Data',
+                          message: (
+                            <div className="space-y-3">
+                              <div className="p-3 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
+                                <p className="font-bold text-slate-800 dark:text-slate-200 mb-1">{event.event_name}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">ID: {event.event_id}</p>
+                                <p className="text-sm text-slate-600 dark:text-slate-300">
+                                  <span className="font-semibold">Logged:</span> {new Date(event.created_at).toLocaleString()}
+                                </p>
+                                {event.description && (
+                                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 italic">
+                                    "{event.description}"
+                                  </p>
+                                )}
+                              </div>
+                              <p className="text-sm text-slate-600 dark:text-slate-400">
+                                Choose which data file you would like to download for this event.
+                              </p>
+                              <div className="flex flex-col gap-2 mt-2">
+                                <button
+                                  onClick={() => {
+                                    window.open(`${API_BASE_URL}/download-event/${event.event_id}`, '_blank');
+                                    setShowConfirmModal(false);
+                                  }}
+                                  className="w-full px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  Download Slope Analysis CSV
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    window.open(`${API_BASE_URL}/download-source/${event.event_id}`, '_blank');
+                                    setShowConfirmModal(false);
+                                  }}
+                                  className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  Download Source Data CSV
+                                </button>
+                              </div>
+                            </div>
+                          ),
+                          onConfirm: () => setShowConfirmModal(false) 
+                        });
+                        setShowConfirmModal(true);
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                          {event.event_name.charAt(0).toUpperCase()}
+                        </span>
+                        <svg className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      </div>
+                      <h6 className="font-semibold text-slate-800 dark:text-slate-200 truncate">{event.event_name}</h6>
+                      <div className="flex justify-between items-center mt-1">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(event.created_at).toLocaleDateString()}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(event.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

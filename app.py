@@ -507,11 +507,12 @@ def create_event():
         
         event_name = data.get('event_name')
         failure_time_iso = data.get('failure_time_iso')
+        description = data.get('description', '')
         
         if not event_name or not failure_time_iso:
             return jsonify({'error': 'event_name and failure_time_iso are required'}), 400
         
-        result = event_manager.create_event(event_name, failure_time_iso)
+        result = event_manager.create_event(event_name, failure_time_iso, description)
         return jsonify(result), 201
         
     except ValueError as e:
@@ -553,6 +554,44 @@ def get_event_names():
             'event_names': event_names,
             'count': len(event_names)
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/download-event/<event_id>')
+def download_event(event_id):
+    """Download the generated CSV file for a specific event."""
+    try:
+        filename = f"{event_id}.csv"
+        file_path = os.path.join(EVENTS_DIR, filename)
+        
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'Event file not found'}), 404
+            
+        return send_from_directory(EVENTS_DIR, filename, as_attachment=True, mimetype='text/csv')
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/download-source/<event_id>')
+def download_source(event_id):
+    """Download the archived source CSV file for a specific event."""
+    try:
+        # First we need to find the filename from metadata
+        json_path = os.path.join(EVENTS_DIR, f"{event_id}.json")
+        if not os.path.exists(json_path):
+            return jsonify({'error': 'Event metadata not found'}), 404
+            
+        with open(json_path, 'r', encoding='utf-8') as f:
+            metadata = json.load(f)
+            
+        archived_filename = metadata.get('archived_source_filename')
+        if not archived_filename:
+            return jsonify({'error': 'Source file info not found in metadata'}), 404
+            
+        file_path = os.path.join(EVENTS_DIR, archived_filename)
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'Archived source file not found'}), 404
+            
+        return send_from_directory(EVENTS_DIR, archived_filename, as_attachment=True, mimetype='text/csv')
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

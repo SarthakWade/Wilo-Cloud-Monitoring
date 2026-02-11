@@ -29,7 +29,7 @@ class EventManager:
         Load all data points from max_reading CSV files.
         
         Returns:
-            List of (timestamp_ms, z_value) tuples sorted by timestamp
+            List of (timestamp_ms, z_value, filename) tuples sorted by timestamp
         """
         import glob
         
@@ -37,6 +37,7 @@ class EventManager:
         max_reading_files = glob.glob(os.path.join(self.data_dir, 'max_reading*.csv'))
         
         for file_path in max_reading_files:
+            filename = os.path.basename(file_path)
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     reader = csv.DictReader(f)
@@ -58,7 +59,7 @@ class EventManager:
                             else:
                                 continue
                             
-                            all_points.append((timestamp_ms, z_value))
+                            all_points.append((timestamp_ms, z_value, filename))
                         except (ValueError, KeyError):
                             continue
             except Exception as e:
@@ -86,7 +87,8 @@ class EventManager:
         # Find the last point that is at or before the failure time
         nearest_idx = None
         
-        for idx, (timestamp, _) in enumerate(data_points):
+        for idx, point in enumerate(data_points):
+            timestamp = point[0]
             if timestamp <= failure_time_ms:
                 nearest_idx = idx
             else:
@@ -114,13 +116,15 @@ class EventManager:
         
         # Start from failure and go backwards
         for i in range(failure_idx, max(-1, failure_idx - MAX_LOOKBACK_POINTS), -1):
-            timestamp, value = data_points[i]
+            timestamp = data_points[i][0]
+            value = data_points[i][1]
             
             # Calculate slope (comparing current point to next point in time)
             if i == failure_idx:
                 slope = 0.0  # Failure point has no slope (reference point)
             else:
-                next_timestamp, next_value = data_points[i + 1]
+                next_timestamp = data_points[i + 1][0]
+                next_value = data_points[i + 1][1]
                 time_diff = next_timestamp - timestamp
                 value_diff = next_value - value
                 
@@ -147,8 +151,10 @@ class EventManager:
                 for j in range(i - 1, max(-1, i - 5), -1):
                     if j < 0:
                         break
-                    curr_timestamp, curr_value = data_points[j]
-                    next_timestamp, next_value = data_points[j + 1]
+                    curr_timestamp = data_points[j][0]
+                    curr_value = data_points[j][1]
+                    next_timestamp = data_points[j + 1][0]
+                    next_value = data_points[j + 1][1]
                     time_diff = next_timestamp - curr_timestamp
                     
                     if time_diff > 0:
@@ -162,8 +168,10 @@ class EventManager:
                     for j in range(i - 1, max(-1, i - 5), -1):
                         if j < 0:
                             break
-                        timestamp, value = data_points[j]
-                        next_timestamp, next_value = data_points[j + 1]
+                        timestamp = data_points[j][0]
+                        value = data_points[j][1]
+                        next_timestamp = data_points[j + 1][0]
+                        next_value = data_points[j + 1][1]
                         time_diff = next_timestamp - timestamp
                         
                         if time_diff > 0:
@@ -185,13 +193,14 @@ class EventManager:
         
         return slope_data
     
-    def create_event(self, event_name: str, failure_time_iso: str) -> Dict:
+    def create_event(self, event_name: str, failure_time_iso: str, description: str = "") -> Dict:
         """
         Create a new event with slope tracking BACKWARDS from failure to baseline.
         
         Args:
             event_name: Name of the event (e.g., "Bearing Failure")
             failure_time_iso: ISO format timestamp of failure (e.g., "2025-11-27T12:24:00")
+            description: Optional description of the event
             
         Returns:
             Dict with event details and file paths
@@ -215,8 +224,10 @@ class EventManager:
         if failure_idx is None:
             raise ValueError("Could not find data point at or before failure time")
         
-        # Get failure value
-        failure_timestamp, failure_value = data_points[failure_idx]
+        # Get failure value and source filename
+        failure_timestamp = data_points[failure_idx][0]
+        failure_value = data_points[failure_idx][1]
+        source_filename = data_points[failure_idx][2]
         
         # Calculate slopes BACKWARDS from failure to baseline
         slope_data = self._calculate_slopes_backwards(data_points, failure_idx)
@@ -231,6 +242,21 @@ class EventManager:
         
         csv_path = os.path.join(self.events_dir, csv_filename)
         json_path = os.path.join(self.events_dir, json_filename)
+        
+        # Copy source CSV to events directory
+        import shutil
+        source_path = os.path.join(self.data_dir, source_filename)
+        archived_source_filename = f"{event_id}_SOURCE_{source_filename}"
+        archived_source_path = os.path.join(self.events_dir, archived_source_filename)
+        
+        try:
+            if os.path.exists(source_path):
+                shutil.copy2(source_path, archived_source_path)
+            else:
+                archived_source_filename = f"Source file {source_filename} not found"
+        except Exception as e:
+            print(f"Error copying source file: {e}")
+            archived_source_filename = f"Error copying {source_filename}"
         
         # Write CSV with slope data (chronological: oldest to newest)
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
@@ -254,9 +280,12 @@ class EventManager:
         metadata = {
             'event_id': event_id,
             'event_name': event_name,
+            'description': description,
             'failure_time_iso': failure_time_iso,
             'failure_timestamp_ms': failure_timestamp,
             'failure_value': failure_value,
+            'source_filename': source_filename,
+            'archived_source_filename': archived_source_filename,
             'actual_data_time_iso': datetime.datetime.fromtimestamp(failure_timestamp / 1000).isoformat(),
             'time_before_failure_seconds': time_before_failure,
             'total_data_points': len(slope_data),
@@ -277,6 +306,7 @@ class EventManager:
             'event_id': event_id,
             'csv_file': csv_filename,
             'json_file': json_filename,
+            'source_file_archived': archived_source_filename,
             'metadata': metadata
         }
     
