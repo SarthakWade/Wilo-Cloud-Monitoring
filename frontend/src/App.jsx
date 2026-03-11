@@ -629,6 +629,7 @@ function App() {
   const [showEventModal, setShowEventModal] = useState(false);
   const [eventTime, setEventTime] = useState('');
   const [eventName, setEventName] = useState('');
+  const [customEventName, setCustomEventName] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [selectedExistingEvent, setSelectedExistingEvent] = useState('');
   const [eventHistory, setEventHistory] = useState([]);
@@ -1429,6 +1430,7 @@ function App() {
               setSelectedExistingEvent('');
               setEventTime('');
               setEventName('');
+              setCustomEventName('');
             }}
             className="group px-6 py-3 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 flex items-center gap-3 hover:-translate-y-0.5"
           >
@@ -1694,6 +1696,7 @@ function App() {
               setShowEventModal(false);
               setEventTime('');
               setEventName('');
+              setCustomEventName('');
               setEventDescription('');
               setSelectedExistingEvent('');
             }}
@@ -1708,6 +1711,7 @@ function App() {
                   setShowEventModal(false);
                   setEventTime('');
                   setEventName('');
+              setCustomEventName('');
                   setEventDescription('');
                   setSelectedExistingEvent('');
                 }}
@@ -1754,15 +1758,41 @@ function App() {
                 ) : (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      New Event Name
+                      Event Type
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={eventName}
                       onChange={(e) => setEventName(e.target.value)}
-                      placeholder="Enter new event name..."
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
+                    >
+                      <option value="">-- Select event type --</option>
+                      <optgroup label="Motor Failures">
+                        <option value="Motor Bearing Failure">Motor Bearing Failure</option>
+                        <option value="Motor Overheating">Motor Overheating</option>
+                        <option value="Motor Winding Failure">Motor Winding Failure</option>
+                        <option value="Motor Shaft Misalignment">Motor Shaft Misalignment</option>
+                        <option value="Motor Vibration Anomaly">Motor Vibration Anomaly</option>
+                        <option value="Motor Stall">Motor Stall</option>
+                        <option value="Motor Electrical Fault">Motor Electrical Fault</option>
+                      </optgroup>
+                      <optgroup label="Pump Failures">
+                        <option value="Pump Seal Leakage">Pump Seal Leakage</option>
+                        <option value="Pump Cavitation">Pump Cavitation</option>
+                        <option value="Pump Impeller Damage">Pump Impeller Damage</option>
+                      </optgroup>
+                      <optgroup label="Other">
+                        <option value="__custom__">Custom Event...</option>
+                      </optgroup>
+                    </select>
+                    {eventName === '__custom__' && (
+                      <input
+                        type="text"
+                        value={customEventName}
+                        onChange={(e) => setCustomEventName(e.target.value)}
+                        placeholder="Enter custom event name..."
+                        className="w-full mt-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      />
+                    )}
                   </div>
                 )}
 
@@ -1781,7 +1811,7 @@ function App() {
 
                 <button
                   onClick={async () => {
-                    const finalEventName = selectedExistingEvent || eventName;
+                    const finalEventName = selectedExistingEvent || (eventName === '__custom__' ? customEventName : eventName);
 
                     if (!eventTime || !finalEventName) {
                       alert('Please fill in all required fields');
@@ -1831,6 +1861,7 @@ function App() {
                       // Reset form
                       setEventTime('');
                       setEventName('');
+              setCustomEventName('');
                       setEventDescription('');
                       setSelectedExistingEvent('');
                       setShowEventModal(false);

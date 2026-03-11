@@ -8,7 +8,74 @@ import os
 import csv
 import json
 import datetime
+import numpy as np
+from scipy import stats as sp_stats
 from typing import Dict, List, Tuple, Optional
+
+
+def calculate_statistics(z_values):
+    """Calculate comprehensive statistical parameters for acceleration data."""
+    if not z_values or len(z_values) == 0:
+        return {}
+
+    def safe_float(val):
+        f = float(val)
+        if np.isnan(f) or np.isinf(f):
+            return 0.0
+        return f
+
+    z_array = np.array(z_values)
+
+    max_val = np.max(z_array)
+    min_val = np.min(z_array)
+    mean_val = np.mean(z_array)
+    abs_mean = np.mean(np.abs(z_array))
+    rms = np.sqrt(np.mean(z_array**2))
+    variance = np.var(z_array)
+    std_dev = np.std(z_array)
+    peak = max(abs(max_val), abs(min_val))
+    peak_to_peak = max_val - min_val
+
+    crest_factor = peak / rms if rms != 0 else 0
+    impulse_factor = peak / abs_mean if abs_mean != 0 else 0
+    shape_factor = rms / abs_mean if abs_mean != 0 else 0
+    sqrt_mean = np.mean(np.sqrt(np.abs(z_array)))
+    clearance_factor = peak / (sqrt_mean**2) if sqrt_mean != 0 else 0
+
+    skewness = sp_stats.skew(z_array)
+    kurtosis_val = sp_stats.kurtosis(z_array)
+
+    energy = np.sum(z_array**2)
+    zero_crossings = np.sum(np.diff(np.signbit(z_array)))
+    zero_crossing_rate = zero_crossings / len(z_array) if len(z_array) > 1 else 0
+
+    percentile_90 = np.percentile(z_array, 90)
+    percentile_95 = np.percentile(z_array, 95)
+    percentile_99 = np.percentile(z_array, 99)
+
+    return {
+        'max': safe_float(max_val),
+        'min': safe_float(min_val),
+        'mean': safe_float(mean_val),
+        'abs_mean': safe_float(abs_mean),
+        'rms': safe_float(rms),
+        'variance': safe_float(variance),
+        'std_dev': safe_float(std_dev),
+        'peak': safe_float(peak),
+        'peak_to_peak': safe_float(peak_to_peak),
+        'crest_factor': safe_float(crest_factor),
+        'impulse_factor': safe_float(impulse_factor),
+        'shape_factor': safe_float(shape_factor),
+        'clearance_factor': safe_float(clearance_factor),
+        'skewness': safe_float(skewness),
+        'kurtosis': safe_float(kurtosis_val),
+        'excess_kurtosis': safe_float(kurtosis_val),
+        'energy': safe_float(energy),
+        'zero_crossing_rate': safe_float(zero_crossing_rate),
+        'percentile_90': safe_float(percentile_90),
+        'percentile_95': safe_float(percentile_95),
+        'percentile_99': safe_float(percentile_99),
+    }
 
 
 class EventManager:
@@ -258,25 +325,42 @@ class EventManager:
             print(f"Error copying source file: {e}")
             archived_source_filename = f"Error copying {source_filename}"
         
-        # Write CSV with slope data (chronological: oldest to newest)
+        # Compute statistics over the entire event data window
+        event_values = [p['value'] for p in slope_data]
+        event_statistics = calculate_statistics(event_values)
+
+        # Stat column names for CSV
+        stat_keys = [
+            'max', 'min', 'mean', 'abs_mean', 'rms', 'variance', 'std_dev',
+            'peak', 'peak_to_peak', 'crest_factor', 'impulse_factor',
+            'shape_factor', 'clearance_factor', 'skewness', 'kurtosis',
+            'excess_kurtosis', 'energy', 'zero_crossing_rate',
+            'percentile_90', 'percentile_95', 'percentile_99'
+        ]
+
+        # Write CSV with slope data + statistics columns
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-            fieldnames = ['timestamp', 'timestamp_iso', 'value', 'slope', 'time_delta_seconds']
+            fieldnames = ['timestamp', 'timestamp_iso', 'value', 'slope', 'time_delta_seconds'] + stat_keys
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            
+
             for point in slope_data:
-                writer.writerow({
+                row = {
                     'timestamp': point['timestamp'],
                     'timestamp_iso': datetime.datetime.fromtimestamp(point['timestamp'] / 1000).isoformat(),
                     'value': point['value'],
                     'slope': point['slope'],
                     'time_delta_seconds': point['time_delta']
-                })
-        
+                }
+                # Add all statistical parameters to each row
+                for key in stat_keys:
+                    row[key] = event_statistics.get(key, 0.0)
+                writer.writerow(row)
+
         # Calculate metadata
         time_before_failure = abs(slope_data[0]['time_delta']) if slope_data else 0
         slopes = [p['slope'] for p in slope_data[:-1]]  # Skip last point (failure, slope=0)
-        
+
         metadata = {
             'event_id': event_id,
             'event_name': event_name,
@@ -294,6 +378,7 @@ class EventManager:
                 'min_slope': min(slopes) if slopes else 0,
                 'avg_slope': sum(slopes) / len(slopes) if slopes else 0
             },
+            'statistics': event_statistics,
             'created_at': datetime.datetime.now().isoformat()
         }
         
